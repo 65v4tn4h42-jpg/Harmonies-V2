@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Harmonies 3D">
 <meta name="theme-color" content="#140c06">
-<title>Harmonies · 3D v3.18</title>
+<title>Harmonies · 3D v3.19</title>
 <style>
 /* v3.18: type is embedded (latin subsets, ~80 KB) so the game looks the same offline,
    in the iOS webview and on the web: Fraunces (soft, wght 400-800, opsz 9-72) for
@@ -47,13 +47,15 @@
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100vh;height:100dvh;overflow:hidden;background:var(--kraft);
-  position:fixed;inset:0;width:100%;overscroll-behavior:none;
+  position:fixed;inset:0;width:100%;overscroll-behavior:none;touch-action:none;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
   font-family:var(--sans);font-size:var(--t-m);color:var(--ink);
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
   font-optical-sizing:auto}
 input, textarea{-webkit-user-select:auto;user-select:auto}
 #stage{position:fixed;inset:0;touch-action:none}
+/* v3.19: if a browser zooms the page anyway, hand it the gestures to zoom back out */
+html.page-zoomed, html.page-zoomed body, html.page-zoomed #stage{touch-action:auto}
 canvas{display:block}
 svg{display:block}
 /* soft vignette over the 3D stage */
@@ -154,21 +156,39 @@ button.chip:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 2px
   box-shadow:0 2px 8px rgba(0,0,0,.18)}
 #status:empty{display:none}
 
-/* ---------- details drawer ---------- */
-#dock{position:fixed;top:0;right:0;bottom:0;width:var(--dockw);min-width:320px;z-index:8;
-  transform:translateX(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
+/* ---------- details drawer ----------
+   v3.19: opens from the LEFT, over the card market it describes, and starts
+   under the top bar — the board, the token piles and the scores stay in view
+   while you read the cards. Portrait phones get a bottom sheet above the
+   action bar instead; the 3D table re-centres above it. */
+#dock{position:fixed;top:var(--top-h,56px);left:0;bottom:0;width:var(--dockw);min-width:320px;
+  max-width:calc(100vw - 24px);z-index:8;
+  transform:translateX(-105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
   background:var(--stock);
   background-image:repeating-linear-gradient(3deg, rgba(120,96,50,.028) 0 2px, transparent 2px 7px),
     repeating-linear-gradient(93deg, rgba(120,96,50,.02) 0 1px, transparent 1px 5px);
-  border-left:1px solid var(--edge);box-shadow:-10px 0 30px rgba(20,12,4,.28);
+  border:1px solid var(--edge);border-left:none;border-bottom:none;border-top-right-radius:var(--r-l);
+  box-shadow:10px 0 30px rgba(20,12,4,.28);
   display:flex;flex-direction:column;overflow-y:auto;
-  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
-  padding:0 calc(16px + var(--safe-r)) calc(16px + var(--safe-b)) 16px}
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;
+  padding:0 16px calc(16px + var(--safe-b)) calc(16px + var(--safe-l))}
 #dock.open{transform:none}
 .dock-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;
-  margin:0 -16px;padding:calc(12px + var(--safe-t)) 16px 10px;
+  margin:0 -16px 0 calc(-16px - var(--safe-l));padding:12px 16px 10px calc(16px + var(--safe-l));
   background:linear-gradient(var(--stock) 78%, rgba(245,238,219,0))}
+/* while the drawer is open the HUD bits it would cover move beside it */
+body.dock-open #status{left:calc(var(--dock-w, 320px) + var(--gut))}
+body.dock-open #actions{left:calc(var(--dock-w, 320px) + (100% - var(--dock-w, 320px)) / 2)}
+body.dock-open #toast{left:calc(var(--dock-w, 320px) + (100% - var(--dock-w, 320px)) / 2)}
+#dockToggle[aria-expanded="true"]{background:var(--stock-hi);box-shadow:inset 0 0 0 2px var(--moss), var(--lift)}
 .dock-title{font-family:var(--serif);font-weight:700;font-size:var(--t-2x);margin:0;letter-spacing:.003em}
+/* v3.19: the tokens you're placing ride in the drawer's header, so they stay
+   in view while the drawer covers the dock on the table */
+.dock-head{flex-wrap:wrap}
+.dock-tray{order:3;flex-basis:100%;display:flex;align-items:center;gap:9px;margin:8px 0 2px}
+.dock-tray::before{content:'To place';font-weight:800;font-size:var(--t-xs);letter-spacing:.04em;color:var(--ink-2);margin-right:2px}
+.dock-tray:empty{display:none}
+.dock-tray .tok{width:26px;height:26px}
 .icon-btn{width:36px;height:36px;min-height:0;padding:0;border-radius:50%;display:grid;place-items:center}
 .icon-btn svg{width:14px;height:14px;stroke:var(--ink);stroke-width:2;stroke-linecap:round;fill:none}
 .section{padding:12px 0 14px;border-top:1px solid var(--edge-soft)}
@@ -237,30 +257,124 @@ button.chip:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 2px
 /* ---------- shared modal sheet ---------- */
 #over, #zoom, #pause{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
   padding:calc(16px + var(--safe-t)) 16px calc(16px + var(--safe-b));background:rgba(12,8,3,.56)}
-#over{z-index:10} #zoom{z-index:11} #pause{z-index:12}
-#over .box, #zoom .zbox, #pause .sheet{background:var(--stock);border:1px solid var(--edge);
+#over{padding:calc(10px + var(--safe-t)) calc(10px + var(--safe-r)) calc(10px + var(--safe-b)) calc(10px + var(--safe-l))}
+#zoom{z-index:11} #pause{z-index:12}
+#pause .sheet{touch-action:pan-y}
+#zoom .zbox, #pause .sheet{background:var(--stock);border:1px solid var(--edge);
   border-radius:var(--r-l);box-shadow:0 1px 0 rgba(255,255,255,.7) inset, 0 18px 50px rgba(0,0,0,.42)}
 
-/* game over: category rows coded with their habitat colour */
-#over .box{width:min(92vw,360px);padding:22px 22px 18px}
-#over h2{font-family:var(--serif);font-weight:700;font-size:var(--t-3x);line-height:1.1;margin:0 0 14px}
-#over table{width:100%;border-collapse:collapse;font-size:var(--t-m);margin-bottom:16px}
-#over th{font-weight:800;font-size:var(--t-xs);color:var(--ink-2);letter-spacing:.04em;padding:0 8px 6px;text-align:right}
-#over td{padding:6px 8px;text-align:right;font-family:var(--serif);font-weight:600;font-variant-numeric:lining-nums;
-  border-top:1px solid var(--edge-soft)}
-#over th:first-child, #over td:first-child{text-align:left;padding-left:2px;font-family:var(--sans);font-weight:700}
-#over td:first-child::before{content:'';display:inline-block;width:10px;height:10px;border-radius:3px;
-  margin-right:9px;vertical-align:-1px;background:var(--sw, transparent)}
-#over tr.r-Trees{--sw:var(--leaf)} #over tr.r-Mountains{--sw:var(--mtn)} #over tr.r-Fields{--sw:var(--field)}
-#over tr.r-Buildings{--sw:var(--coral)} #over tr.r-Water{--sw:var(--water)} #over tr.r-Animals{--sw:var(--cube)}
-#over tr.total td{font-size:var(--t-xl);font-weight:700;border-top:2px solid var(--edge);padding-top:9px}
-#over tr.total td:first-child{font-family:var(--serif)}
-#over tr.total td:first-child::before, #over tr.cubes td:first-child::before{display:none}
-#over tr.cubes td{border-top:none;color:var(--ink-2);font-size:var(--t-s);padding-top:2px}
-#over tr.cubes td:first-child{font-weight:600}
-#ovTable[data-win="0"] tr > :nth-child(2), #ovTable[data-win="1"] tr > :nth-child(3){background:rgba(136,173,56,.14)}
-#ovTable[data-win="1"] tr > :nth-child(3){background:rgba(204,46,53,.10)}
-#over button{width:100%}
+/* ---------- v3.19: end-of-game results sheet ---------- */
+#over{z-index:10;align-items:center}
+#over.open{display:flex}
+.sum{position:relative;display:flex;flex-direction:column;width:min(100%, 760px);max-height:100%;
+  background:var(--stock);border:1px solid var(--edge);border-radius:var(--r-l);overflow:hidden;
+  box-shadow:0 1px 0 rgba(255,255,255,.7) inset, 0 18px 50px rgba(0,0,0,.42)}
+.sum-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.sum-hero{position:relative;padding:20px 20px 26px;text-align:center;color:#f7eed6;
+  background:radial-gradient(130% 150% at 50% 0%, #5b7a33 0%, #33461c 60%, #263515 100%)}
+.sum-hero::after{content:'';position:absolute;left:0;right:0;bottom:0;height:5px;
+  background:linear-gradient(90deg, var(--water) 0 16.66%, var(--mtn) 0 33.33%, var(--trunk) 0 50%,
+    var(--leaf) 0 66.66%, var(--field) 0 83.33%, var(--coral) 0)}
+.sum-kick{font-weight:800;font-size:var(--t-xs);letter-spacing:.14em;text-transform:uppercase;color:rgba(247,238,214,.7)}
+.sum-hero h2{font-family:var(--serif);font-weight:700;font-size:34px;line-height:1.05;margin:6px 0 12px;letter-spacing:.003em;outline:none}
+.sum-score{display:flex;align-items:center;justify-content:center;gap:14px}
+.ss{display:flex;align-items:center;gap:8px;font-weight:800;font-size:var(--t-s);color:rgba(247,238,214,.85)}
+.ss b{font-family:var(--serif);font-weight:700;font-size:48px;line-height:1;color:#fff8e6;font-variant-numeric:lining-nums}
+.ss .hex, .sb h4 .hex{width:12px;height:14px;flex:none;background:var(--seat);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.ss.you, .sb.you{--seat:var(--leaf)} .ss.bot, .sb.bot{--seat:var(--coral)}
+#over[data-win="1"] .ss.you b, #over[data-win="0"] .ss.bot b{color:rgba(255,248,230,.6)}
+.ss-dash{font-family:var(--serif);font-size:34px;color:rgba(247,238,214,.55)}
+.sum-sub{margin-top:10px;font-size:var(--t-s);font-weight:700;color:rgba(247,238,214,.82)}
+.sum-body{padding:4px 18px 10px}
+.sum-sec{padding:16px 0 8px;border-top:1px solid var(--edge-soft)}
+.sum-sec:first-child{border-top:none}
+.sum-sec h3{font-family:var(--serif);font-weight:650;font-size:var(--t-l);margin:0 0 10px;color:var(--ink)}
+/* points: butterfly bars, yours to the left */
+.bf-row{display:grid;grid-template-columns:1fr 104px 1fr;align-items:center;column-gap:8px;min-height:27px}
+.bf-l, .bf-r{display:flex;align-items:center;gap:7px;min-width:0}
+.bf-l{justify-content:flex-end}
+.bf-bar{height:12px;border-radius:6px;background:var(--c);flex:none}
+.bf-v{font-family:var(--serif);font-weight:700;font-size:var(--t-m);min-width:2ch;text-align:center;color:var(--ink-3);
+  font-variant-numeric:tabular-nums lining-nums}
+.bf-v.lead{color:var(--ink)}
+.bf-k{display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;font-size:var(--t-xs);
+  letter-spacing:.03em;color:var(--ink-2)}
+.bf-k i{width:9px;height:9px;border-radius:3px;background:var(--c);flex:none}
+.bf-head{min-height:20px;font-weight:800;font-size:var(--t-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.bf-row.tot{margin-top:4px;padding-top:6px;border-top:2px solid var(--edge)}
+.bf-row.tot .bf-v{font-size:var(--t-xl)} .bf-row.tot .bf-k{font-family:var(--serif);font-size:var(--t-m);color:var(--ink)}
+/* the two final boards */
+.sum-boards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sb{background:var(--stock-hi);border:1px solid var(--edge-soft);border-radius:var(--r-m);padding:10px 10px 8px;
+  display:flex;flex-direction:column;align-items:center;min-width:0}
+.sb h4{align-self:stretch;display:flex;align-items:center;justify-content:space-between;margin:0 0 6px;
+  font-family:var(--serif);font-weight:650;font-size:var(--t-m)}
+.sb h4 span{display:flex;align-items:center;gap:7px}
+.sb h4 b{font-family:var(--serif);font-size:var(--t-xl)}
+.sb canvas{max-width:100%;height:auto !important}
+.sb .facts{font-size:var(--t-xs);font-weight:700;color:var(--ink-2);margin-top:6px;text-align:center}
+/* every card taken */
+.sum-cards{display:grid;gap:14px}
+.sc-row h4{margin:0 0 8px;font-weight:800;font-size:var(--t-s);color:var(--ink-2)}
+.sc-list{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 6px;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch}
+button.sc{flex:none;width:92px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0;min-height:0;
+  background:none;border:none;box-shadow:none;color:var(--ink);cursor:zoom-in}
+button.sc:active:not(:disabled){transform:translateY(1px);box-shadow:none}
+.sc .ph{position:relative;display:block;width:92px;aspect-ratio:.584;border-radius:6px;overflow:hidden;background:#e3d8bb;
+  box-shadow:0 1px 3px rgba(40,30,10,.35)}
+.sc .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.sc.none .ph img{filter:saturate(.55) brightness(.92)}
+.sc .badge{position:absolute;left:5px;right:5px;bottom:5px;padding:3px 4px;border-radius:999px;font-size:10.5px;font-weight:800;
+  background:rgba(255,251,241,.94);color:var(--ink);text-align:center;white-space:nowrap}
+.sc.done .badge{background:var(--moss);color:#f8f1dd}
+.sc .nm{font-family:var(--serif);font-weight:650;font-size:var(--t-s);margin-top:3px;line-height:1.1}
+.sc .cubes{display:flex;gap:3px;justify-content:center}
+.sc .cubes i{width:8px;height:8px;border-radius:2px;background:var(--cube)}
+.sc .cubes i.off{background:transparent;box-shadow:inset 0 0 0 1.5px rgba(232,119,28,.5)}
+.sc .pts{font-size:var(--t-xs);font-weight:700;color:var(--ink-2)}
+/* the numbers */
+.sum-stats{width:100%;border-collapse:collapse;font-size:var(--t-s)}
+.sum-stats th{font-size:var(--t-xs);font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);text-align:right;padding:0 6px 6px}
+.sum-stats td{padding:7px 6px;border-top:1px solid var(--edge-soft);text-align:right;font-weight:700;color:var(--ink);
+  font-variant-numeric:tabular-nums lining-nums}
+.sum-stats td:first-child{text-align:left;color:var(--ink-2);padding-left:0}
+.sum-stats td.lead{color:var(--moss-ink);font-weight:900}
+.sum-facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.sum-facts span{padding:5px 10px;border-radius:999px;background:var(--stock-lo);font-size:var(--t-xs);font-weight:800;color:var(--ink-2)}
+.sum-actions{flex:none;display:flex;gap:8px;padding:10px 14px 12px;border-top:1px solid var(--edge-soft);background:var(--stock)}
+.sum-actions button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding-left:8px;padding-right:8px}
+.sum-actions svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+@media (max-width:440px){
+  .sum-body{padding:2px 12px 8px}
+  .sum-hero h2{font-size:30px} .ss b{font-size:42px}
+  .sum-boards{gap:8px} .sb{padding:8px 6px 6px}
+  .bf-row{grid-template-columns:1fr 92px 1fr;column-gap:6px}
+}
+#ovTitle:focus, #ovTitle:focus-visible{outline:none}
+/* short landscape: a compact hero so the results get the room */
+@media (max-height:500px) and (orientation:landscape){
+  .sum{width:min(100%, 820px)}
+  .sum-hero{padding:10px 16px 14px;display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:18px;text-align:left}
+  .sum-kick{grid-column:1} .sum-hero h2{grid-column:1;font-size:26px;margin:2px 0 0}
+  .sum-sub{grid-column:1;margin-top:2px}
+  .sum-score{grid-column:2;grid-row:1 / span 3}
+  .ss b{font-size:38px}
+  .sum-actions{padding:8px 12px 10px}
+}
+/* share preview: the finished image, to keep or send */
+#shareView{position:fixed;inset:0;z-index:13;display:none;align-items:center;justify-content:center;
+  padding:calc(16px + var(--safe-t)) 16px calc(16px + var(--safe-b));background:rgba(12,8,3,.7)}
+#shareView.open{display:flex}
+.sv-box{display:flex;flex-direction:column;align-items:center;gap:10px;max-width:min(92vw, 520px);max-height:100%;
+  padding:14px;background:var(--stock);border:1px solid var(--edge);border-radius:var(--r-l);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.sv-box img{display:block;max-width:100%;max-height:calc(100dvh - 190px);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.3);
+  -webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
+.sv-box .btnrow{justify-content:center}
+a.btnlike{display:inline-flex;align-items:center;min-height:40px;padding:9px 14px;border-radius:var(--r-m);
+  background:var(--stock-hi);border:1px solid var(--edge);box-shadow:0 1px 0 rgba(255,255,255,.8) inset, 0 2px 0 var(--edge-dk);
+  font-weight:700;font-size:var(--t-s);color:var(--ink);text-decoration:none}
+[hidden]{display:none !important}
 
 /* card zoom */
 #zoom .zbox{max-width:min(92vw,430px);padding:16px;text-align:center}
@@ -315,10 +429,10 @@ button.skin[aria-checked="true"] .nm::after{content:'';width:16px;height:16px;bo
   radial-gradient(50% 18% at 50% 92%, rgba(60,50,30,.22), transparent 70%),
   linear-gradient(#f4efe5, #e4dccb)}
 /* the NSFW checkbox */
-.check{display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:var(--r-m);cursor:pointer;
+.check{display:flex;align-items:center;gap:12px;padding:12px;border-radius:var(--r-m);cursor:pointer;
   background:var(--stock-hi);border:1px solid var(--edge-soft);margin-bottom:12px}
 .check input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
-.check .box{width:24px;height:24px;flex:none;margin-top:1px;border-radius:7px;background:#fff;
+.check .box{width:24px;height:24px;flex:none;border-radius:7px;background:#fff;
   border:1.5px solid var(--edge-dk);box-shadow:inset 0 1px 2px rgba(50,36,14,.14);display:grid;place-items:center;
   transition:background-color .12s, border-color .12s}
 .check .box::after{content:'';width:12px;height:7px;margin-top:-3px;border-left:2.5px solid #fff8ea;border-bottom:2.5px solid #fff8ea;
@@ -332,8 +446,20 @@ button.skin[aria-checked="true"] .nm::after{content:'';width:16px;height:16px;bo
 
 /* ---------- phones ---------- */
 @media (max-width:760px){
-  #dock{width:88vw;min-width:0}
+  #dock{width:min(88vw, 360px);min-width:0}
   #status{max-width:calc(100vw - 2 * var(--gut))}
+}
+@media (max-width:600px) and (orientation:portrait){
+  #dock{top:auto;left:8px;right:8px;bottom:var(--act-h, 84px);width:auto;max-width:none;
+    height:min(46vh, 520px);border:1px solid var(--edge);border-radius:var(--r-l);
+    transform:translateY(calc(100% + var(--act-h, 84px) + 30px));
+    box-shadow:0 -8px 30px rgba(20,12,4,.34);padding:0 14px 14px}
+  .dock-head{margin:0 -14px;padding:12px 14px 8px;border-radius:var(--r-l) var(--r-l) 0 0}
+  .dock-head::before{content:'';position:absolute;left:50%;top:5px;width:38px;height:4px;margin-left:-19px;
+    border-radius:2px;background:var(--edge)}
+  body.dock-open #status{left:calc(var(--gut) + var(--safe-l))}
+  body.dock-open #actions{left:50%}
+  body.dock-open #toast{left:50%;top:calc(var(--top-h, 56px) + 8px);bottom:auto}
 }
 @media (max-width:560px){
   :root{--gut:10px}
@@ -371,7 +497,7 @@ button.skin[aria-checked="true"] .nm::after{content:'';width:16px;height:16px;bo
   .seat{height:24px}
   .seat .val{font-size:var(--t-l)}
   #status{top:calc(44px + var(--safe-t))}
-  #actions{left:auto;right:calc(8px + var(--safe-r));top:52%;bottom:auto;
+  #actions, body.dock-open #actions{left:auto;right:calc(8px + var(--safe-r));top:52%;bottom:auto;
     transform:translateY(-50%);flex-direction:column;padding:5px;gap:5px}
   #actions button{padding:9px 12px;font-size:12.5px;min-width:112px}
   #toast{bottom:calc(10px + var(--safe-b))}
@@ -391,19 +517,20 @@ button.skin[aria-checked="true"] .nm::after{content:'';width:16px;height:16px;bo
   <button class="hud-btn" id="pauseBtn" aria-label="Pause and settings" title="Pause · settings (Esc)">
     <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.4" y="2.6" width="3.2" height="10.8" rx="1.1"/><rect x="9.4" y="2.6" width="3.2" height="10.8" rx="1.1"/></svg>
   </button>
+  <button class="chip" id="dockToggle" aria-controls="dock" aria-expanded="false" title="Cards, tray and new game"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg><span class="lbl">Details</span></button>
   <h1>Harmonies<small>3D</small></h1>
   <div class="scoreboard" role="group" aria-label="Scores">
     <div class="seat" id="chipYou" data-seat="you"><span class="hex" aria-hidden="true"></span><span class="who">You</span><span class="val" id="scYou">0</span></div>
     <div class="seat" id="chipBot" data-seat="bot"><span class="hex" aria-hidden="true"></span><span class="who">Bot</span><span class="val" id="scBot">0</span></div>
   </div>
   <div class="chip" id="bagchip" role="button" tabindex="0" aria-label="Tokens left in the bag, by habitat" title="Tokens left in the bag"><span class="bagnum"><span id="bagN">120</span><span class="bagword"> in bag</span></span><svg class="chev" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg><i class="bagmix" aria-hidden="true"></i><div id="bagPanel"></div></div>
-  <button class="chip" id="dockToggle" title="Cards, tray and new game"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"/></svg><span class="lbl">Details</span></button>
 </div>
 <div id="status"></div>
 
 <div id="dock" aria-label="Table details">
   <div class="dock-head">
     <h2 class="dock-title">Table details</h2>
+    <div class="dock-tray" id="dockTray" role="group" aria-label="Tokens to place"></div>
     <button id="dockClose" class="icon-btn" aria-label="Close details"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 2.5l9 9M11.5 2.5l-9 9"/></svg></button>
   </div>
   <section class="section">
@@ -435,6 +562,8 @@ button.skin[aria-checked="true"] .nm::after{content:'';width:16px;height:16px;bo
   <button id="bSettle">Settle</button>
   <button id="bDiscard">Discard stuck</button>
   <button id="bEnd" class="primary">End turn</button>
+  <button id="bSum" hidden>Summary</button>
+  <button id="bNew2" class="primary" hidden>New game</button>
 </div>
 
 <div id="zoom"><div class="zbox">
@@ -447,10 +576,35 @@ button.skin[aria-checked="true"] .nm::after{content:'';width:16px;height:16px;bo
 </div></div>
 
 <div id="toast" role="status" aria-live="polite"></div>
-<div id="over"><div class="box" role="dialog" aria-modal="true" aria-labelledby="ovTitle">
-  <h2 id="ovTitle"></h2>
-  <table id="ovTable"></table>
-  <button class="primary" onclick="document.getElementById('over').style.display='none'">Back to board</button>
+<div id="over" role="dialog" aria-modal="true" aria-labelledby="ovTitle"><div class="sum">
+  <div class="sum-scroll" id="ovScroll">
+    <header class="sum-hero">
+      <div class="sum-kick" id="ovKick">Game over</div>
+      <h2 id="ovTitle" tabindex="-1"></h2>
+      <div class="sum-score">
+        <div class="ss you"><span class="hex" aria-hidden="true"></span><span>You</span><b id="ovYou">0</b></div>
+        <span class="ss-dash" aria-hidden="true">&ndash;</span>
+        <div class="ss bot"><b id="ovBot">0</b><span>Bot</span><span class="hex" aria-hidden="true"></span></div>
+      </div>
+      <div class="sum-sub" id="ovSub"></div>
+    </header>
+    <div class="sum-body">
+      <section class="sum-sec"><h3>Points</h3><div class="bfly" id="ovBars"></div></section>
+      <section class="sum-sec"><h3>Final boards</h3><div class="sum-boards" id="ovBoards"></div></section>
+      <section class="sum-sec"><h3>Animal cards</h3><div class="sum-cards" id="ovCards"></div></section>
+      <section class="sum-sec"><h3>The numbers</h3><table class="sum-stats" id="ovStats"></table><div class="sum-facts" id="ovFacts"></div></section>
+    </div>
+  </div>
+  <div class="sum-actions">
+    <button id="ovShare"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2.2M5 5l3-3 3 3M3.5 8v5.3h9V8"/></svg><span class="lbl">Share</span></button>
+    <button id="ovBack" class="quiet">View table</button>
+    <button id="ovNew" class="primary">New game</button>
+  </div>
+</div></div>
+<div id="shareView" role="dialog" aria-modal="true" aria-label="Game summary image"><div class="sv-box">
+  <img id="svImg" alt="Game summary">
+  <p class="hint">Press and hold the image to save or send it.</p>
+  <div class="btnrow"><a id="svSave" class="btnlike" download="harmonies-3d.png">Save image</a><button id="svClose" class="primary">Done</button></div>
 </div></div>
 
 <div id="pause" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
@@ -466,8 +620,8 @@ button.skin[aria-checked="true"] .nm::after{content:'';width:16px;height:16px;bo
       <button class="skin" role="radio" aria-checked="false" data-skin="arena"><span class="sw sw-arena" aria-hidden="true"></span><span class="nm">Grand final</span><span class="ds">Felt, spotlights and a trophy</span></button>
       <button class="skin" role="radio" aria-checked="false" data-skin="studio"><span class="sw sw-studio" aria-hidden="true"></span><span class="nm">Studio</span><span class="ds">Quiet and easy on the battery</span></button>
     </div>
-    <label class="check"><input type="checkbox" id="nsfwToggle"><span class="box" aria-hidden="true"></span><span class="txt"><span class="nm">NSFW</span><span class="ds">Puts a beer, some weed and a toy on the table. Just for show.</span></span></label>
-    <p class="foot">Harmonies 3D · v3.18 · base game, side A</p>
+    <label class="check"><input type="checkbox" id="nsfwToggle"><span class="box" aria-hidden="true"></span><span class="txt"><span class="nm">NSFW</span></span></label>
+    <p class="foot">Harmonies 3D · v3.19 · base game, side A</p>
   </div>
 </div>
 
@@ -1094,6 +1248,12 @@ window.CARD_META = {"aspect": 0.58394, "radius": 0.0484, "cubeU": 0.898, "cubeV0
 </script>
 <script>
 'use strict';
+/* v3.19 — results sheet (both final boards, every card taken with its progress,
+   a page of numbers) and a shareable summary image; NSFW props moved to the
+   back of the table, where no sight line to a game piece passes, plus smoke
+   drift, a pretzel bowl and a vape; the details drawer opens from the left (a
+   bottom sheet on portrait phones, with the table re-centred above it); and
+   the pinch / page-zoom freeze outside home-screen mode is fixed. */
 const H = window.HarmoniesEngine;
 /* v3.7.1: surface every runtime error as visible text, so "game showing
    errors" reports carry the exact message */
@@ -1211,7 +1371,8 @@ const bootT = performance.now();
 /* v3.17: survive a lost GL context (iOS reclaims it under memory pressure or
    after long backgrounding) instead of freezing on a black canvas */
 let ctxLost = false;
-renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); ctxLost = true; }, false);
+renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); ctxLost = true;
+  const st = document.getElementById('status'); if(st) st.textContent = 'Restoring graphics\u2026'; }, false);
 renderer.domElement.addEventListener('webglcontextrestored', () => {
   ctxLost = false;
   try { buildEnv(); rebuild(); updateUI(); } catch(_e){}
@@ -1254,22 +1415,68 @@ function buildEnv(){
 }
 buildEnv();
 
-function resize(){
+/* v3.19: the zoom freeze. Outside home-screen (web app) mode, Safari and
+   in-app webviews let the PAGE zoom whatever the viewport tag says, and every
+   frame of that zoom fired visualViewport 'resize' straight into resize(),
+   which re-allocated the GL drawing buffer (renderer.setSize) and re-solved
+   the camera fit 60 times a second until iOS reclaimed the GL context — the
+   table froze. Now: resizes are coalesced to one per frame, the buffer is only
+   re-allocated when the layout size really changes, a page zoom is detected
+   (visualViewport.scale) and never touches the renderer, and page zoom is
+   blocked at the source (touch-action + gesture/touch guards below). If a
+   browser zooms the page anyway, the game hands gestures back to it so a
+   pinch-out restores the table, instead of swallowing every touch. */
+let pageZoomed = false, rzQueued = 0, lastRz = '';
+function resize(force){
   const w = stage.clientWidth, h = stage.clientHeight;   // v3.3: board anchors in its own window
+  if(w < 2 || h < 2) return;
+  const key = w + 'x' + h + '@' + renderer.getPixelRatio();
+  if(key === lastRz && force !== true) return;
+  lastRz = key;
   camera.aspect = w/h; camera.updateProjectionMatrix();
   renderer.setSize(w, h);
+  if(booted) syncHudVars();
   if(typeof fitView === 'function' && booted) fitView(false);
   poke();
 }
+function queueResize(){
+  if(rzQueued) return;
+  rzQueued = requestAnimationFrame(() => { rzQueued = 0; checkPageZoom(); if(!pageZoomed) resize(); });
+}
+function checkPageZoom(){
+  const vv = window.visualViewport;
+  const z = !!vv && vv.scale > 1.02;
+  if(z === pageZoomed) return;
+  pageZoomed = z;
+  document.documentElement.classList.toggle('page-zoomed', z);
+  if(z){
+    if(typeof endGesture === 'function') endGesture();
+    toast('Page zoomed in \u2014 pinch out to get back to the table');
+    const vp = document.querySelector('meta[name="viewport"]');      /* ask the browser to snap back */
+    if(vp){ const c = vp.getAttribute('content'); vp.setAttribute('content', c + ', initial-scale=1.0');
+      setTimeout(() => vp.setAttribute('content', c), 350); }
+  } else resize(true);
+}
 let booted = false;
-addEventListener('resize', resize);
+addEventListener('resize', queueResize);
 /* v3.15: hard viewport lock — absorb every gesture the page itself might scroll on,
    so the hosting webview never animates its chrome back in. The dock scrolls
-   internally (overscroll-behavior:contain); everything else is ours. */
-stage.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
-document.addEventListener('gesturestart', e => e.preventDefault());
-addEventListener('orientationchange', () => setTimeout(resize, 250));
-if(window.visualViewport) visualViewport.addEventListener('resize', resize);
+   internally (overscroll-behavior:contain); everything else is ours.
+   v3.19: multi-finger touches and Safari's gesture events are refused page-wide
+   (a pinch that started on the HUD used to zoom the page), double-tap zoom is
+   off, and all of it stands down while the page is zoomed so the browser can
+   zoom back out. */
+stage.addEventListener('touchmove', e => { if(!pageZoomed) e.preventDefault(); }, {passive:false});
+document.addEventListener('touchstart', e => { if(!pageZoomed && e.touches && e.touches.length > 1) e.preventDefault(); }, {passive:false});
+document.addEventListener('touchmove', e => {
+  if(pageZoomed) return;
+  if((e.touches && e.touches.length > 1) || (typeof e.scale === 'number' && e.scale !== 1)) e.preventDefault();
+}, {passive:false});
+['gesturestart', 'gesturechange', 'gestureend'].forEach(t =>
+  document.addEventListener(t, e => { if(!pageZoomed) e.preventDefault(); }, {passive:false}));
+document.addEventListener('dblclick', e => e.preventDefault(), {passive:false});
+addEventListener('orientationchange', () => setTimeout(queueResize, 250));
+if(window.visualViewport) visualViewport.addEventListener('resize', queueResize);
 
 /* lights — v3.10: warm lamplight key over the table, dim warm bounce, moonlight
    through the windows, ember rim from the hearth.
@@ -3321,25 +3528,74 @@ function tickStudio(t, dt, still){
 }
 
 /* ======================================================================
-   v3.18: NSFW table props (display only, off by default) — a pint of
-   lager on a cork coaster, a jar of buds with a fan leaf and a lit joint
-   on an ashtray, and a hot-pink novelty toy that buzzes now and then.
+   NSFW table props (display only, off by default).
+   v3.18: a pint on a cork coaster, a jar of buds with a fan leaf and a lit
+   joint on an ashtray, and a hot-pink novelty toy that buzzes now and then.
+   v3.19: every prop now stands in the BACK of the table — the one zone that
+   no sight line to a game piece crosses, from any camera the orbit allows
+   (theta +-0.85, phi 0.55-1.18, every zoom) on any screen shape, so nothing
+   here can sit in front of, or inside, a card, the board, the piles or the
+   token dock (in v3.18 the jar stood inside the dock on phones). Two corners:
+     behind the bot's rack: fan leaf, jar, ashtray + joint (its smoke
+                 drifts away from the table) and a bowl of yogurt-covered
+                 pretzels; behind the token board: the pint and a vape;
+     back-left, behind the market: the toy.
    Nothing here is pickable: the tap tests only look at game groups.
    ====================================================================== */
 let vicesOn = false, vicesGroup = null;
 const vicesLive = {};
-/* two free corners that stay on screen in every layout (desktop, phone
-   portrait and landscape): front-left, below the market, and back-right,
-   behind the token tray. Nothing sits on a card, the board or the tray. */
-const VICE_SPOTS = {beer: [7.0, -11.2, -2.5], weed: [-8.1, 8.3, 0], toy: [6.7, -6.6, 0.95]};
+/* x, z, yaw — table coordinates; checked against the sight-line map (v3.19) */
+const VICE_SPOTS = {
+  weed:     [4.1, -13.0, 0.0],
+  pretzels: [7.35, -10.85, 0.4],
+  beer:     [10.0, -7.9, -2.5],
+  vape:     [10.05, -4.95, 0.62],
+  toy:      [-3.75, -12.55, -0.81]
+};
+/* the classic three-hole twist, traced once (unit size, ends pressed onto the belly) */
+const PRETZEL_PATH = [[-0.40, -0.70, 0.07], [-0.30, -0.36, 0.05], [-0.12, -0.02, 0.06], [0.08, 0.30, 0.10], [0.38, 0.62, 0.03],
+  [0.70, 0.70, 0], [0.99, 0.42, 0], [1.03, 0.0, 0], [0.84, -0.48, 0], [0.42, -0.82, 0], [0.0, -0.90, 0],
+  [-0.42, -0.82, 0], [-0.84, -0.48, 0], [-1.03, 0.0, 0], [-0.99, 0.42, 0], [-0.70, 0.70, 0], [-0.38, 0.62, 0.03],
+  [-0.08, 0.30, -0.04], [0.12, -0.02, 0.0], [0.30, -0.36, 0.05], [0.40, -0.70, 0.07]];
+function makePretzelGeo(rnd){
+  /* the yogurt coat makes the rope fat and the three holes small */
+  const pts = PRETZEL_PATH.map(([x, y, z]) => new THREE.Vector3(x * 1.3, z * 1.6, -y * 1.25));
+  const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+  const rad = 0.25;
+  const tube = new THREE.TubeGeometry(curve, 72, rad, 9, false);
+  /* yogurt coat: chalk white with cream pooling; a few bare-pretzel flecks */
+  const P = tube.attributes.position, col = new Float32Array(P.count * 3);
+  const cream = C(0xf3ecdc), white = C(0xfbf8f1), bare = C(0xb9763a);
+  const flecks = [rnd() * 64 | 0, rnd() * 64 | 0];
+  for(let i = 0; i < P.count; i++){
+    const seg = Math.floor(i / 10);
+    const k = 0.35 + 0.65 * Math.abs(Math.sin(seg * 0.9 + i * 0.31));
+    let c = white.clone().lerp(cream, k * 0.7);
+    if(flecks.some(f => Math.abs(seg - f) < 2) && (i % 10) < 3) c = c.lerp(bare, 0.5);
+    col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+  }
+  tube.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  /* round off the two open ends */
+  const parts = [tube];
+  [pts[0], pts[pts.length - 1]].forEach(p => {
+    const s = new THREE.SphereGeometry(rad, 8, 6); s.translate(p.x, p.y, p.z);
+    const sc = new Float32Array(s.attributes.position.count * 3).fill(0);
+    for(let i = 0; i < sc.length; i += 3){ sc[i] = cream.r; sc[i+1] = cream.g; sc[i+2] = cream.b; }
+    s.setAttribute('color', new THREE.BufferAttribute(sc, 3));
+    parts.push(s);
+  });
+  return parts;
+}
 function buildVices(){
   const G = new THREE.Group(); G.name = 'nsfw-props';
   const T = TABLE_TOP;
   const glass = new THREE.MeshPhysicalMaterial({color: 0xffffff, roughness: 0.05, metalness: 0, transmission: 0.92,
     transparent: true, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 1.8, depthWrite: false, side: THREE.DoubleSide});
+  const at = (spot, s) => { const o = new THREE.Group(); const p = VICE_SPOTS[spot];
+    o.position.set(p[0], T, p[1]); o.rotation.y = p[2]; if(s) o.scale.setScalar(s); G.add(o); return o; };
 
   /* --- the beer --- */
-  { const B = new THREE.Group(); B.position.set(VICE_SPOTS.beer[0], T, VICE_SPOTS.beer[1]); B.rotation.y = VICE_SPOTS.beer[2];
+  { const B = at('beer');
     const cork = envTex(128, 128, (x) => {
       x.fillStyle = '#b98a55'; x.fillRect(0, 0, 128, 128);
       const r = envRng(5);
@@ -3371,12 +3627,43 @@ function buildVices(){
     const bubbles = new THREE.Points(bg, new THREE.PointsMaterial({color: 0xfff1c8, map: dustTex, size: 0.09,
       transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending}));
     bubbles.renderOrder = 5; bubbles.frustumCulled = false; B.add(bubbles);
-    vicesLive.bubbles = {geo: bg, seeds: bs, n: NB, y0: 0.07 + 0.5, y1: 0.07 + 0.42 + 2.55};
-    G.add(B); }
+    vicesLive.bubbles = {geo: bg, seeds: bs, n: NB, y0: 0.07 + 0.5, y1: 0.07 + 0.42 + 2.55}; }
+
+  /* --- v3.19: a disposable vape lying beside the pint (generic shell, no brand) --- */
+  { const V = at('vape');
+    const len = 2.05, wid = 0.74, thick = 0.26, bev = 0.08;
+    const capsule = new THREE.Shape(), cr = wid / 2;                 /* stadium outline: no seams on the bevel */
+    capsule.absarc(0, len / 2 - cr, cr, 0, Math.PI, false);
+    capsule.absarc(0, -len / 2 + cr, cr, Math.PI, Math.PI * 2, false);
+    const body = new THREE.ExtrudeGeometry(capsule, {depth: thick, bevelEnabled: true,
+      bevelThickness: bev, bevelSize: bev, bevelSegments: 3, curveSegments: 10});
+    body.translate(0, 0, -thick / 2);
+    body.rotateX(-Math.PI / 2);                                   /* lies flat: length along -z..+z */
+    /* glossy two-tone gradient, mint at the base to indigo under the mouthpiece */
+    const BP = body.attributes.position, bc = new Float32Array(BP.count * 3);
+    const c0 = C(0x2fd3c0), c1 = C(0x3c46d6), cc = new THREE.Color();
+    for(let i = 0; i < BP.count; i++){
+      const f = THREE.MathUtils.smoothstep((BP.getZ(i) + len / 2) / len, 0.05, 0.95);
+      cc.copy(c0).lerp(c1, f); bc[i*3] = cc.r; bc[i*3+1] = cc.g; bc[i*3+2] = cc.b;
+    }
+    body.setAttribute('color', new THREE.BufferAttribute(bc, 3));
+    const shell = new THREE.MeshPhysicalMaterial({vertexColors: true, roughness: 0.22, metalness: 0.15,
+      clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1.3});
+    const vb = envMesh(body, shell, 0, thick / 2 + bev + 0.005, 0, V); vb.castShadow = true;
+    const ink = new THREE.MeshStandardMaterial({color: C(0x121418), roughness: 0.3, metalness: 0.2, envMapIntensity: 1.1});
+    /* mouthpiece: a flattened, tapering cap with a slot */
+    const mp = new THREE.ExtrudeGeometry(roundRectShape(wid * 0.62, 0.62, 0.16), {depth: thick * 0.72, bevelEnabled: true,
+      bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 3, curveSegments: 8});
+    mp.translate(0, 0, -thick * 0.36); mp.rotateX(-Math.PI / 2);
+    const mpm = envMesh(mp, ink, 0, thick / 2 + bev + 0.005, len / 2 + 0.2, V); mpm.castShadow = true;
+    envMesh(new THREE.BoxGeometry(wid * 0.24, 0.03, 0.06), new THREE.MeshBasicMaterial({color: 0x050506}),
+      0, thick / 2 + bev + 0.005 + thick * 0.36 + 0.06, len / 2 + 0.42, V);
+    /* the draw light at the base end: breathes when someone "takes a pull" */
+    const ledGlow = envGlow(0x7ff3ff, 0.9, 0, V, 0, thick + bev * 2 + 0.06, -len / 2 + 0.24);
+    vicesLive.vape = {ledGlow, next: 6500, t0: 0}; }
 
   /* --- the weed: fan leaf, an open jar of buds, a joint burning on an ashtray --- */
-  { const W = new THREE.Group(); W.position.set(VICE_SPOTS.weed[0], T, VICE_SPOTS.weed[1]); W.rotation.y = VICE_SPOTS.weed[2];
-    W.scale.setScalar(0.9);
+  { const W = at('weed', 0.88);
     /* fan leaf: seven slender, serrated leaflets with pale midribs */
     const leaf = new THREE.Shape(), ribs = [];
     const lens = [0.85, 1.35, 1.95, 2.4, 1.95, 1.35, 0.85], angs = [-1.32, -0.88, -0.44, 0, 0.44, 0.88, 1.32];
@@ -3409,10 +3696,11 @@ function buildVices(){
     }
     leafGeo.setAttribute('color', new THREE.BufferAttribute(lc, 3));
     const leafM = new THREE.MeshStandardMaterial({vertexColors: true, roughness: 0.62, envMapIntensity: 0.35, side: THREE.DoubleSide});
-    const lf = envMesh(leafGeo, leafM, 0.2, 0.03, 0.9, W);        /* fanned to the left, stem under the ashtray */
-    lf.rotation.set(-Math.PI / 2, 0, 2.03); lf.receiveShadow = true;
+    /* v3.19: fanned out in front of the jar, stem tucked behind it */
+    const lf = envMesh(leafGeo, leafM, -0.1, 0.03, -0.55, W);
+    lf.rotation.set(-Math.PI / 2, 0, Math.PI - 0.32); lf.receiveShadow = true;
     const ribGeo = new THREE.ShapeGeometry(ribs, 1);
-    const rb = envMesh(ribGeo, new THREE.MeshStandardMaterial({color: C(0x7fae52), roughness: 0.65, envMapIntensity: 0.35, side: THREE.DoubleSide}), 0.2, 0.045, 0.9, W);
+    const rb = envMesh(ribGeo, new THREE.MeshStandardMaterial({color: C(0x7fae52), roughness: 0.65, envMapIntensity: 0.35, side: THREE.DoubleSide}), -0.1, 0.045, -0.55, W);
     rb.rotation.copy(lf.rotation);
     /* an open jar of buds, one rolled out onto the table */
     const budTex = envTex(128, 128, (x) => {
@@ -3425,7 +3713,7 @@ function buildVices(){
       for(let i = 0; i < 300; i++){ x.fillRect(r() * 128, r() * 128, 1, 1); }
     });
     const budM = new THREE.MeshStandardMaterial({map: budTex, roughness: 0.85});
-    const jar = new THREE.Group(); jar.position.set(-1.4, 0, -0.1);
+    const jar = new THREE.Group(); jar.position.set(-1.45, 0, 0.15);
     const jprof = [[0, 0], [0.9, 0], [0.96, 0.1], [0.98, 1.6], [0.8, 1.78], [0.78, 2.0], [0.72, 2.0], [0.74, 1.78], [0.91, 1.6], [0.89, 0.12], [0, 0.12]]
       .map(([r, y]) => new THREE.Vector2(r, y));
     const jg = envMesh(new THREE.LatheGeometry(jprof, 30), glass, 0, 0, 0, jar); jg.renderOrder = 6; jg.castShadow = true;
@@ -3437,7 +3725,7 @@ function buildVices(){
         x.beginPath(); x.ellipse(0, -12 + Math.abs(k) * 2.5, 2.6, 11 - Math.abs(k) * 2.5, 0, 0, Math.PI * 2); x.fill(); x.restore(); } });
     });
     const lab = envMesh(new THREE.CylinderGeometry(0.985, 0.985, 0.62, 30, 1, true), envStd(0xffffff, {map: kraft, roughness: 0.9}), 0, 0.82, 0, jar);
-    lab.rotation.y = 2.2;
+    lab.rotation.y = 0.4;
     const rimM = envStd(0xf4f8f6, {roughness: 0.1, transparent: true, opacity: 0.55});
     envMesh(new THREE.TorusGeometry(0.75, 0.04, 6, 30), rimM, 0, 2.0, 0, jar).rotation.x = Math.PI / 2;
     const br = envRng(13);
@@ -3445,11 +3733,11 @@ function buildVices(){
       const bud = envMesh(new THREE.IcosahedronGeometry(bsz, 1), budM, bx, by, bz, jar);
       bud.scale.set(1, 1.45, 1); bud.rotation.set(br() * 0.6, br() * 3, br() * 0.6);
     });
-    const looseBud = envMesh(new THREE.IcosahedronGeometry(0.34, 1), budM, 1.4, 0.3, 1.1, jar);
+    const looseBud = envMesh(new THREE.IcosahedronGeometry(0.34, 1), budM, 1.05, 0.3, -1.05, jar);
     looseBud.scale.set(1.45, 1, 1); looseBud.rotation.y = 0.6;
     W.add(jar);
-    /* ashtray + joint */
-    const tray = new THREE.Group(); tray.position.set(1.25, 0, 0.25);
+    /* ashtray + joint: the burning end points away from the table */
+    const tray = new THREE.Group(); tray.position.set(1.45, 0, 0.1);
     const aprof = [[0, 0], [1.25, 0], [1.32, 0.12], [1.3, 0.42], [1.12, 0.42], [1.02, 0.16], [0, 0.14]].map(([r, y]) => new THREE.Vector2(r, y));
     envMesh(new THREE.LatheGeometry(aprof, 32), envStd(0x2c3340, {roughness: 0.25, envMapIntensity: 1.2}), 0, 0, 0, tray).castShadow = true;
     const joint = new THREE.Group();
@@ -3463,25 +3751,49 @@ function buildVices(){
     const ember = envMesh(new THREE.SphereGeometry(0.15, 12, 8), new THREE.MeshBasicMaterial({color: 0xff5a1e, toneMapped: false}), jl / 2 + 0.3, 0, 0, joint);
     ember.scale.set(0.55, 1, 1);
     const emberGlow = envGlow(0xff7a2a, 1.2, 0.8, joint, jl / 2 + 0.32, 0, 0);
-    joint.position.set(0.1, 0.62, 0.1); joint.rotation.set(0, -0.55, 0.16);
+    joint.position.set(0.15, 0.62, -0.05); joint.rotation.set(0, 2.45, 0.16);
     tray.add(joint);
     W.add(tray);
-    /* smoke ribbon */
-    const smokeTex = envTex(64, 64, (x) => {
-      const gr = x.createRadialGradient(32, 32, 0, 32, 32, 32);
-      gr.addColorStop(0, 'rgba(235,235,240,0.65)'); gr.addColorStop(0.6, 'rgba(220,220,228,0.22)'); gr.addColorStop(1, 'rgba(220,220,228,0)');
-      x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
-    });
-    const puffs = [];
-    for(let i = 0; i < 7; i++){
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({map: smokeTex, transparent: true, opacity: 0, depthWrite: false}));
-      s.renderOrder = 7; W.add(s); puffs.push({s, ph: i / 7});
+    G.updateMatrixWorld(true);
+    const tip = ember.getWorldPosition(new THREE.Vector3());          /* G sits at the origin: world == G-local */
+    vicesLive.smoke = {ember, emberGlow, tip};
+  }
+
+  /* --- v3.19: a bowl of yogurt-covered pretzels next to the stash --- */
+  { const P = at('pretzels');
+    const bowlP = [[0, 0], [0.56, 0], [0.64, 0.04], [0.86, 0.2], [1.02, 0.42], [1.08, 0.6], [1.04, 0.64], [0.98, 0.58],
+      [0.83, 0.34], [0.62, 0.17], [0, 0.14]].map(([r, y]) => new THREE.Vector2(r, y));
+    const bowl = new THREE.LatheGeometry(bowlP, 40);
+    /* sage glaze outside, cream inside, a toasted rim where the glaze breaks */
+    const BP = bowl.attributes.position, bc = new Float32Array(BP.count * 3);
+    const sage = C(0x7f9b7c), cream = C(0xf0e6d0), rimC = C(0x8a6542);
+    for(let i = 0; i < BP.count; i++){
+      const k = i % bowlP.length;
+      const c = k <= 5 ? sage : (k === 6 ? rimC : cream);
+      bc[i*3] = c.r; bc[i*3+1] = c.g; bc[i*3+2] = c.b;
     }
-    vicesLive.smoke = {puffs, ember, emberGlow, joint, W};
-    G.add(W); }
+    bowl.setAttribute('color', new THREE.BufferAttribute(bc, 3));
+    const bm = envMesh(bowl, new THREE.MeshStandardMaterial({vertexColors: true, roughness: 0.3, envMapIntensity: 0.95}), 0, 0.005, 0, P);
+    bm.castShadow = true; bm.receiveShadow = true;
+    const yog = new THREE.MeshStandardMaterial({vertexColors: true, roughness: 0.55, envMapIntensity: 0.6});
+    const pr = envRng(77);
+    const S = 0.27;                               /* a pretzel ~0.8 across: a handful fills the bowl */
+    const heap = [];
+    for(let i = 0; i < 5; i++) heap.push([0.44, (i / 5) * 6.283 + pr() * 0.4, 0.31, 0.7]);
+    for(let i = 0; i < 4; i++) heap.push([0.2, (i / 4) * 6.283 + 0.7 + pr() * 0.5, 0.47, 0.55]);
+    for(let i = 0; i < 2; i++) heap.push([0.07, (i / 2) * 6.283 + 1.3, 0.61, 0.4]);
+    const place = (x, y, z, rx, ry, rz) => makePretzelGeo(pr).forEach(geo => {
+      const m = envMesh(geo, yog, x, y, z, P); m.scale.setScalar(S); m.rotation.set(rx, ry, rz); m.castShadow = true;
+    });
+    heap.forEach(([r, a, y, tilt]) => place(Math.cos(a) * r, y, Math.sin(a) * r,
+      (pr() - 0.5) * 2 * tilt, pr() * 6.283, (pr() - 0.5) * 2 * tilt));
+    /* two that rolled out onto the table */
+    place(1.62, 0.04 + 0.25 * S, -0.55, 0, 0.7, 0);
+    place(1.45, 0.04 + 0.25 * S, 0.85, 0, 2.3, 0);
+  }
 
   /* --- the toy --- */
-  { const Y = new THREE.Group(); Y.position.set(VICE_SPOTS.toy[0], T, VICE_SPOTS.toy[1]); Y.rotation.y = VICE_SPOTS.toy[2];
+  { const Y = at('toy');
     const pink = new THREE.MeshPhysicalMaterial({color: C(0xff3d97), roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.25});
     const chrome = new THREE.MeshStandardMaterial({color: 0xe3e6ec, metalness: 1, roughness: 0.16, envMapIntensity: 1.6});
     const bodyP = [[0.46, 0], [0.45, 0.5], [0.43, 1.4], [0.41, 2.4], [0.37, 3.1], [0.3, 3.6], [0.2, 3.92], [0.09, 4.08], [0, 4.12]].map(([r, y]) => new THREE.Vector2(r, y));
@@ -3493,14 +3805,80 @@ function buildVices(){
     const led = envMesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshBasicMaterial({color: 0x57d6c2, toneMapped: false}), 0, -0.63, 0, toy);
     toy.rotation.z = Math.PI / 2 - 0.035;                         /* lying on its side */
     toy.userData.live = true;                                     /* it buzzes: keep it out of the batch */
-    toy.position.set(1.7, 0.455, 0);
+    toy.position.set(1.75, 0.455, 0);
     Y.add(toy);
-    vicesLive.toy = {toy, led, base: toy.position.clone(), next: 4200, until: 0};
-    G.add(Y); }
+    vicesLive.toy = {toy, led, base: toy.position.clone(), next: 4200, until: 0}; }
 
-  bakeGroup(G);                 /* foam, buds, glass and chrome each collapse to one draw */
+  bakeGroup(G);                 /* foam, buds, glass, pretzels and chrome each collapse to one draw */
+
+  /* --- v3.19: smoke — one draw for the whole plume. A thin wisp leaves the
+     ember, thickens as it climbs and leans away from the table on a slow,
+     wandering draught. Every puff stays inside the no-sight-line zone. --- */
+  { const N = 34, pos = new Float32Array(N * 3), size = new Float32Array(N), alpha = new Float32Array(N), rot = new Float32Array(N);
+    const sr = envRng(19), seeds = [];
+    for(let i = 0; i < N; i++) seeds.push({ph: i / N, sp: 0.92 + sr() * 0.16, f: sr(), p1: sr() * 6.283, p2: sr() * 6.283, k: sr(), r0: sr() * 6.283});
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(size, 1));
+    geo.setAttribute('alpha', new THREE.BufferAttribute(alpha, 1));
+    geo.setAttribute('rot', new THREE.BufferAttribute(rot, 1));
+    const puffTex = envTex(64, 64, (x) => {
+      const r = envRng(23);
+      for(let k = 0; k < 7; k++){
+        const cx = 22 + r() * 20, cy = 22 + r() * 20, rad = 12 + r() * 14;
+        const gr = x.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        gr.addColorStop(0, 'rgba(255,255,255,0.42)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
+      }
+    });
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {map: {value: puffTex}, scale: {value: 600}, tint: {value: new THREE.Color(0.86, 0.87, 0.9)}},
+      vertexShader: 'attribute float size; attribute float alpha; attribute float rot; uniform float scale;' +
+        'varying float vA; varying float vR;' +
+        'void main(){ vA = alpha; vR = rot; vec4 mv = modelViewMatrix * vec4(position, 1.0);' +
+        ' gl_PointSize = size * scale / max(0.001, -mv.z); gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform sampler2D map; uniform vec3 tint; varying float vA; varying float vR;' +
+        'void main(){ vec2 p = gl_PointCoord - 0.5; float c = cos(vR), s = sin(vR);' +
+        ' p = vec2(c * p.x - s * p.y, s * p.x + c * p.y) + 0.5;' +
+        ' float a = texture2D(map, clamp(p, 0.0, 1.0)).a * vA; if(a < 0.004) discard;' +
+        ' gl_FragColor = vec4(tint, a); }',
+      transparent: true, depthWrite: false});
+    const plume = new THREE.Points(geo, mat);
+    plume.renderOrder = 8; plume.frustumCulled = false;
+    G.add(plume);
+    Object.assign(vicesLive.smoke, {geo, mat, seeds, n: N, plume});
+    tickSmoke(9000, true); }
+
   G.visible = false;
   return G;
+}
+/* v3.19: the plume — wind leans it toward the back-left, away from every piece */
+const SMOKE = {life: 7600, rise: 4.1, drift: 1.85, wind: [-0.62, -0.78]};
+function tickSmoke(t, force){
+  const S = vicesLive.smoke;
+  if(!S || !S.geo) return;
+  const P = S.geo.attributes.position.array, Z = S.geo.attributes.size.array,
+        A = S.geo.attributes.alpha.array, R = S.geo.attributes.rot.array;
+  const sway = 0.32 * Math.sin(t / 5300) + 0.12 * Math.sin(t / 2100);
+  const wa = Math.atan2(SMOKE.wind[1], SMOKE.wind[0]) + sway;
+  const wx = Math.cos(wa), wz = Math.sin(wa);
+  for(let i = 0; i < S.n; i++){
+    const s = S.seeds[i];
+    const a = ((t / SMOKE.life) * s.sp + s.ph) % 1;
+    const amp = 0.035 + 0.4 * Math.pow(a, 1.3);
+    const lean = SMOKE.drift * Math.pow(a, 1.7);
+    P[i*3]   = S.tip.x + 0.1 * wx * a + wx * lean + amp * Math.sin(t / 1300 * (0.7 + s.f) + s.p1 + a * 5.0);
+    P[i*3+1] = S.tip.y + 0.12 + SMOKE.rise * Math.pow(a, 0.9);
+    P[i*3+2] = S.tip.z + 0.1 * wz * a + wz * lean + 0.8 * amp * Math.cos(t / 1700 * (0.6 + s.f) + s.p2 + a * 4.2);
+    Z[i] = 0.16 + 1.35 * Math.pow(a, 1.1);
+    A[i] = 0.34 * THREE.MathUtils.smoothstep(a, 0, 0.06) * Math.pow(1 - a, 1.4) * (0.75 + 0.25 * s.k);
+    R[i] = s.r0 + a * 1.6 * (s.k - 0.5);
+  }
+  S.geo.attributes.position.needsUpdate = true;
+  S.geo.attributes.size.needsUpdate = true;
+  S.geo.attributes.alpha.needsUpdate = true;
+  S.geo.attributes.rot.needsUpdate = true;
+  S.mat.uniforms.scale.value = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
 }
 function setVices(on){
   vicesOn = !!on;
@@ -3511,7 +3889,10 @@ function setVices(on){
   poke();
 }
 function tickVices(t, dt, still){
-  if(!vicesOn || !vicesGroup || still) return;
+  if(!vicesOn || !vicesGroup) return;
+  const S = vicesLive.smoke;
+  if(S && S.mat) S.mat.uniforms.scale.value = renderer.domElement.height / (2 * Math.tan(camera.fov * Math.PI / 360));
+  if(still) return;
   const B = vicesLive.bubbles;
   if(B){
     const p = B.geo.attributes.position.array, span = B.y1 - B.y0;
@@ -3521,19 +3902,17 @@ function tickVices(t, dt, still){
     }
     B.geo.attributes.position.needsUpdate = true;
   }
-  const S = vicesLive.smoke;
   if(S){
-    if(!S.tip){ S.W.updateMatrixWorld(true); S.tip = S.ember.getWorldPosition(new THREE.Vector3()); S.W.worldToLocal(S.tip); }
-    const tip = S.tip;
-    S.puffs.forEach((p, i) => {
-      const f = (t / 5200 + p.ph) % 1;
-      p.s.position.set(tip.x + Math.sin(f * 7 + i) * 0.25 * f, tip.y + 0.1 + f * 4.2, tip.z + Math.cos(f * 5 + i) * 0.2 * f);
-      p.s.scale.setScalar(0.35 + f * 1.9);
-      p.s.material.opacity = Math.sin(f * Math.PI) * 0.34;
-      p.s.material.rotation = f * 2 + i;
-    });
+    tickSmoke(t);
     const glow = 0.75 + 0.25 * Math.sin(t / 420) * Math.sin(t / 170);
     S.emberGlow.material.opacity = 0.55 + 0.35 * glow;
+  }
+  const V = vicesLive.vape;
+  if(V){
+    if(t > V.next){ V.t0 = t; V.next = t + 7000 + Math.random() * 7000; }
+    const p = (t - V.t0) / 1700;
+    const on = p >= 0 && p < 1 ? Math.sin(p * Math.PI) : 0;
+    V.ledGlow.material.opacity = 0.85 * on;
   }
   const Y = vicesLive.toy;
   if(Y){
@@ -4604,7 +4983,7 @@ const camVel = {theta: 0, phi: 0};
    tableau (market stand, both racks, board, piles, dock, mini board) sits
    between the top bar and the action bar — portrait phones used to crop the
    market and the piles. Zoom-out headroom scales with it. */
-let fitPts = null, fitPortrait = null;
+let fitPts = null, fitPortrait = null, homeDist = 25;
 function fitPoints(){
   const P = [], o = new THREE.Object3D();
   const corners = (w, h) => [-1, 1].forEach(sx => [-1, 1].forEach(sy =>
@@ -4622,15 +5001,24 @@ function fitPoints(){
   P.push(new THREE.Vector3(-1.7, MINI_POS.y + 1.3, MINI_POS.z), new THREE.Vector3(1.7, MINI_POS.y + 1.3, MINI_POS.z));
   return P;
 }
+function dockIsSheet(){ return matchMedia('(max-width: 600px) and (orientation: portrait)').matches; }
 function uiInsets(){
   const sr = stage.getBoundingClientRect();
   const tb = document.getElementById('topbar'), ab = document.getElementById('actions');
-  const out = {top: 50, bot: 60, right: 10, w: sr.width, h: sr.height};
+  const out = {top: 50, bot: 60, right: 10, left: 10, w: sr.width, h: sr.height};
   if(tb) out.top = Math.max(0, tb.getBoundingClientRect().bottom - sr.top) + 4;
-  if(ab){
+  if(ab && ab.offsetWidth){
     const r = ab.getBoundingClientRect();
     if(r.height > r.width){ out.right = Math.max(10, sr.right - r.left + 6); out.bot = 10; }   /* side bar */
     else out.bot = Math.max(0, sr.bottom - r.top) + 4;
+  }
+  /* v3.19: an open details sheet (portrait phones) takes the lower part of
+     the screen; the table re-centres in what's left above it. Its resting
+     place is read from layout (bottom + height), not the sliding transform. */
+  const dk = document.getElementById('dock');
+  if(dk && dk.classList.contains('open') && dockIsSheet()){
+    const bottom = parseFloat(getComputedStyle(dk).bottom) || 0;
+    out.bot = Math.max(out.bot, bottom + dk.offsetHeight + 8);
   }
   return out;
 }
@@ -4656,7 +5044,7 @@ function fitDistance(theta, phi, ui){
   const ok = d => {
     aimCamera(d, theta, phi);
     const b = projBounds();
-    return b.x0 >= 10 && b.x1 <= ui.w - ui.right && b.y0 >= ui.top && b.y1 <= ui.h - ui.bot;
+    return b.x0 >= ui.left && b.x1 <= ui.w - ui.right && b.y0 >= ui.top && b.y1 <= ui.h - ui.bot;
   };
   let lo = 8, hi = 160;
   if(!ok(hi)) return hi;
@@ -4665,39 +5053,61 @@ function fitDistance(theta, phi, ui){
 }
 /* the projection centre is shifted (setViewOffset) so the tableau sits in the
    middle of the space the UI leaves free — no camera pan, no sub-view */
-const viewOff = {x: 0, y: 0};
+const viewOff = {x: 0, y: 0}, viewOffTarget = {x: 0, y: 0};
 function applyViewOffset(){
   const w = stage.clientWidth, h = stage.clientHeight;
   if(Math.abs(viewOff.x) < 0.5 && Math.abs(viewOff.y) < 0.5) camera.clearViewOffset();
   else camera.setViewOffset(w, h, viewOff.x, viewOff.y, w, h);
 }
-function fitView(force){
+/* v3.19: `animate` glides to the new framing (the details sheet opening or
+   closing) instead of jumping; the player's own zoom is kept relative to it */
+function fitView(force, animate){
   const portrait = stage.clientHeight > stage.clientWidth;
   const phi0 = portrait ? 0.80 : 0.98;          /* portrait looks a little more from above */
   const ui = uiInsets();
+  const prev = {x: viewOff.x, y: viewOff.y};
   viewOff.x = viewOff.y = 0; applyViewOffset();
   let d = 25;
   for(let it = 0; it < 3; it++){
     d = fitDistance(0, phi0, ui);
     aimCamera(d, 0, phi0);
     const b = projBounds();
-    viewOff.x += (b.x0 + b.x1) / 2 - (10 + ui.w - ui.right) / 2;
+    viewOff.x += (b.x0 + b.x1) / 2 - (ui.left + ui.w - ui.right) / 2;
     viewOff.y += (b.y0 + b.y1) / 2 - (ui.top + ui.h - ui.bot) / 2;
     applyViewOffset();
   }
   d = fitDistance(0, phi0, ui);
+  const prevHome = homeDist; homeDist = d;
   CAM_LIM.distMax = Math.max(30, d * 1.22);
   camera.far = Math.max(100, CAM_LIM.distMax + 130);
   camera.updateProjectionMatrix();
+  viewOffTarget.x = viewOff.x; viewOffTarget.y = viewOff.y;
+  if(animate && !reduceMotion){ viewOff.x = prev.x; viewOff.y = prev.y; applyViewOffset(); }
   if(force || portrait !== fitPortrait){
     cam.theta = 0; cam.phi = phi0; cam.dist = d;
     camView.theta = 0; camView.phi = phi0; camView.dist = d;
     camVel.theta = camVel.phi = 0;
-  } else applyCam();
+  } else {
+    if(animate && prevHome > 0 && Number.isFinite(d)) cam.dist *= d / prevHome;
+    applyCam();
+  }
   fitPortrait = portrait;
   placeCamera();
 }
+function stepViewOff(dt){
+  const dx = viewOffTarget.x - viewOff.x, dy = viewOffTarget.y - viewOff.y;
+  if(Math.abs(dx) + Math.abs(dy) < 0.4){
+    if(dx || dy){ viewOff.x = viewOffTarget.x; viewOff.y = viewOffTarget.y; applyViewOffset(); }
+    return false;
+  }
+  const k = 1 - Math.exp(-dt / 70);
+  viewOff.x += dx * k; viewOff.y += dy * k; applyViewOffset();
+  return true;
+}
 function applyCam(){
+  if(!Number.isFinite(cam.theta)) cam.theta = 0;                       /* v3.19 */
+  if(!Number.isFinite(cam.phi)) cam.phi = fitPortrait ? 0.80 : 0.98;
+  if(!Number.isFinite(cam.dist)) cam.dist = homeDist;
   cam.theta = Math.max(CAM_LIM.thetaMin, Math.min(CAM_LIM.thetaMax, cam.theta));
   cam.phi = Math.max(CAM_LIM.phiMin, Math.min(CAM_LIM.phiMax, cam.phi));
   cam.dist = Math.max(CAM_LIM.distMin, Math.min(CAM_LIM.distMax, cam.dist));
@@ -4728,21 +5138,50 @@ function stepCamera(dt){
     applyCam();
   }
   const k = reduceMotion ? 1 : 1 - Math.exp(-dt / 55);
+  if(!Number.isFinite(camView.theta + camView.phi + camView.dist)){ camView.theta = cam.theta; camView.phi = cam.phi; camView.dist = cam.dist; }
   const dT = cam.theta - camView.theta, dP = cam.phi - camView.phi, dD = cam.dist - camView.dist;
   camView.theta += dT * k; camView.phi += dP * k; camView.dist += dD * k;
   placeCamera();
   return Math.abs(dT) + Math.abs(dP) > 2e-4 || Math.abs(dD) > 2e-3;
 }
-let drag = null, moved = 0, pinch = null;
+/* v3.19: one gesture model for mouse, pen and touch — pointer events only.
+   v3.18 rotated and tapped with pointer events but pinched with touch events:
+   a pinch whose end arrived as a touchcancel (Safari and in-app webviews send
+   one whenever the browser claims a two-finger gesture) left `pinch` set for
+   good, so every later drag was ignored and the board seemed frozen; lifting
+   the fingers also fired stray taps. Each finger is now tracked by pointerId,
+   a second finger makes the whole gesture a pinch (never a tap), and cancel or
+   lost capture always ends it. */
+const ptrs = new Map();
+let drag = null, moved = 0, pinch = null, multi = false;
 const el = renderer.domElement;
+function pinchSpan(){
+  const it = ptrs.values(), a = it.next().value, b = it.next().value;
+  return (a && b) ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
+}
+function endGesture(){ drag = null; pinch = null; multi = false; ptrs.clear(); camVel.theta = camVel.phi = 0; }
 el.addEventListener('pointerdown', e=>{
   poke();
+  if(pageZoomed) return;                         /* the browser owns gestures until it zooms back out */
+  if(e.pointerType === 'mouse' && e.button !== 0) return;
   camVel.theta = camVel.phi = 0;
-  if(pinch) return;
-  drag = {x:e.clientX, y:e.clientY, t: performance.now()}; moved = 0;
-  el.setPointerCapture(e.pointerId);
+  ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY});
+  try { el.setPointerCapture(e.pointerId); } catch(_e){}
+  if(ptrs.size === 1){ drag = {x:e.clientX, y:e.clientY, t: performance.now()}; moved = 0; multi = false; pinch = null; }
+  else { drag = null; multi = true; const sp = pinchSpan(); pinch = sp > 8 ? sp : null; }
 });
 el.addEventListener('pointermove', e=>{
+  const pt = ptrs.get(e.pointerId);
+  if(!pt) return;
+  pt.x = e.clientX; pt.y = e.clientY;
+  if(ptrs.size >= 2){                            /* pinch: distance ratio, clamped per event */
+    const sp = pinchSpan();
+    if(sp > 8){
+      if(pinch){ cam.dist *= Math.min(1.25, Math.max(0.8, pinch / sp)); applyCam(); }
+      pinch = sp;
+    }
+    return;
+  }
   if(!drag) return;
   const now = performance.now();
   const dx = e.clientX-drag.x, dy = e.clientY-drag.y, dtm = Math.max(8, now - drag.t);
@@ -4753,33 +5192,34 @@ el.addEventListener('pointermove', e=>{
   camVel.phi = camVel.phi * 0.6 + (-dy*0.0022 / dtm) * 0.4;
   drag = {x:e.clientX, y:e.clientY, t: now};
 });
-el.addEventListener('pointerup', e=>{
-  const flick = drag && performance.now() - drag.t < 60 && moved >= 6;
-  drag = null;
-  if(!flick){ camVel.theta = camVel.phi = 0; }
-  if(moved < 6) pick(e.clientX, e.clientY);
-  poke();
-});
-el.addEventListener('pointercancel', ()=>{ drag = null; camVel.theta = camVel.phi = 0; });
+function pointerEnd(e){
+  if(!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  if(ptrs.size === 0){
+    const tap = e.type === 'pointerup' && drag && !multi && moved < 6;
+    const flick = drag && !multi && performance.now() - drag.t < 60 && moved >= 6;
+    if(!flick){ camVel.theta = camVel.phi = 0; }
+    drag = null; pinch = null; multi = false;
+    if(tap) pick(e.clientX, e.clientY);
+    poke();
+  } else pinch = null;                           /* one finger still down: wait for it to lift */
+}
+el.addEventListener('pointerup', pointerEnd);
+el.addEventListener('pointercancel', pointerEnd);
+el.addEventListener('lostpointercapture', pointerEnd);
 el.addEventListener('wheel', e=>{
-  e.preventDefault(); cam.dist *= (1 + Math.sign(e.deltaY)*0.05); applyCam();
+  e.preventDefault();
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;          /* lines -> pixels */
+  const k = Math.max(-0.25, Math.min(0.25, dy * (e.ctrlKey ? 0.01 : 0.0006)));   /* ctrl = trackpad pinch */
+  cam.dist *= Math.exp(k); applyCam();
 }, {passive:false});
-el.addEventListener('touchstart', e=>{
-  poke();
-  if(e.touches.length === 2){
-    drag = null; camVel.theta = camVel.phi = 0;
-    pinch = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
-                       e.touches[0].clientY-e.touches[1].clientY);
-  }
-}, {passive:true});
-el.addEventListener('touchmove', e=>{
-  if(pinch !== null && e.touches.length === 2){
-    const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
-                         e.touches[0].clientY-e.touches[1].clientY);
-    cam.dist *= pinch/d; pinch = d; applyCam();
-  }
-}, {passive:true});
-el.addEventListener('touchend', e=>{ if(e.touches.length < 2) pinch = null; }, {passive:true});
+/* desktop Safari trackpad pinch arrives as gesture events (iOS pinches are
+   handled above, with two pointers down) */
+let gBase = null;
+el.addEventListener('gesturestart', e => { e.preventDefault(); gBase = ptrs.size ? null : cam.dist; }, {passive:false});
+el.addEventListener('gesturechange', e => { e.preventDefault();
+  if(gBase && !ptrs.size && e.scale > 0.05){ cam.dist = gBase / e.scale; applyCam(); } }, {passive:false});
+el.addEventListener('gestureend', e => { e.preventDefault(); gBase = null; }, {passive:false});
 
 /* picking */
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
@@ -4885,6 +5325,7 @@ function loop(t){
   wasIdle = !busy && idleFor > 4000;
   lastFrameT = t;
   if(stepCamera(dt)) poke();
+  if(stepViewOff(dt)) poke();
   const pulse = reduceMotion ? 0.65 : 0.5 + 0.32*Math.sin((t-t0)/300);
   ringMat.opacity = 0.35 + 0.6 * pulse;
   capMat.opacity = 0.14 + 0.16*(pulse-0.18);
@@ -5012,9 +5453,8 @@ function toast(msg){
 /* v3.7.1: boot self-check — photo block parsed? */
 setTimeout(()=>{
   const n = Object.keys(window.CARD_PHOTOS || {}).length;
-  toast(n === 32 && window.CARD_BACK
-    ? '32 card photos + back loaded'
-    : 'PHOTO LOAD PROBLEM: ' + n + '/32 faces, back=' + !!window.CARD_BACK);
+  if(n !== 32 || !window.CARD_BACK)                /* v3.19: silent when all is well */
+    toast('PHOTO LOAD PROBLEM: ' + n + '/32 faces, back=' + !!window.CARD_BACK);
 }, 600);
 function snapshot(){ undoStack.push(g.serialize()); if(undoStack.length>30) undoStack.shift(); }
 
@@ -5092,6 +5532,7 @@ function updateUI(){
   $('tray').innerHTML = g.turn===HUMAN ? g.tray.map((c,k)=>
     '<span class="tok'+(k===selTray?' sel':'')+'" data-k="'+k+'" style="--c:'+CSSC[c]+'"></span>'
   ).join('') : '';
+  $('dockTray').innerHTML = (myTurnLive() && g.phase === 'place') ? $('tray').innerHTML : '';   /* v3.19 */
   document.querySelectorAll('.tok[data-k]').forEach(el=>
     el.onclick = ()=>{ selTray = +el.dataset.k; updateUI(); });
   $('trayHint').textContent =
@@ -5130,6 +5571,8 @@ function updateUI(){
     g.tray.some(c=>!g.legalPlacements(c).length));
   $('bEnd').disabled = !(placing && !g.tray.length);
   $('bUndo').disabled = !undoStack.length || g.turn!==HUMAN || g.gameOver;
+  ['bUndo', 'bSettle', 'bDiscard', 'bEnd'].forEach(id => { $(id).hidden = g.gameOver; });   /* v3.19 */
+  $('bSum').hidden = $('bNew2').hidden = !g.gameOver;
   $('bView').textContent = 'View: ' + (viewPlayer===HUMAN?'your board':'bot board');
 
   $('status').textContent = g.gameOver ? 'Game over.' :
@@ -5266,8 +5709,27 @@ $('bUndo').onclick = ()=>{
   viewPlayer = HUMAN; rebuild(); updateUI();
 };
 $('bView').onclick = ()=>{ viewPlayer = 1-viewPlayer; rebuild(); updateUI(); };
-$('dockToggle').onclick = ()=>document.getElementById('dock').classList.toggle('open');
-$('dockClose').onclick = ()=>document.getElementById('dock').classList.remove('open');
+/* v3.19: the HUD's real sizes feed the drawer / sheet placement */
+function syncHudVars(){
+  const root = document.documentElement.style, sr = stage.getBoundingClientRect();
+  const tb = $('topbar').getBoundingClientRect(), ab = $('actions').getBoundingClientRect();
+  root.setProperty('--top-h', Math.round(tb.bottom - sr.top) + 'px');
+  if(ab.width && ab.width >= ab.height) root.setProperty('--act-h', Math.round(sr.bottom - ab.top + 8) + 'px');
+  root.setProperty('--dock-w', $('dock').offsetWidth + 'px');
+}
+function setDock(open){
+  const dk = $('dock');
+  if(dk.classList.contains('open') === !!open) return;
+  syncHudVars();
+  dk.classList.toggle('open', !!open);
+  document.body.classList.toggle('dock-open', !!open);
+  $('dockToggle').setAttribute('aria-expanded', String(!!open));
+  $('bagchip').classList.remove('open');
+  if(booted && dockIsSheet()) fitView(false, true);
+  poke();
+}
+$('dockToggle').onclick = ()=>setDock(!$('dock').classList.contains('open'));
+$('dockClose').onclick = ()=>setDock(false);
 document.getElementById('dock').addEventListener('click', e=>{
   const img = e.target.closest('.patimg');
   if(!img) return;
@@ -5284,17 +5746,455 @@ $('bNew').onclick = ()=>{
   newGame(Number.isFinite(v) ? v : undefined);
 };
 
-function showOver(){
+/* ============ v3.19: end-of-game summary ============
+   Both final boards, every animal card each player took with how far it got,
+   the score split and a page of numbers — on a scrollable results sheet, and
+   as one stylised image you can share or save. The boards are drawn flat
+   (top-down hex maps, stacks layered, cubes on top) by one routine that serves
+   both the sheet and the share image, so the two always agree. */
+let gameSeed, gameClock = {start: 0, end: 0, paused: 0, pausedAt: 0}, shareJob = null;
+const SEAT_C = {you: '#88ad38', bot: '#cc2e35'};
+const ROWS = [['Trees', '#88ad38'], ['Mountains', '#6f7884'], ['Fields', '#f0a92a'],
+              ['Buildings', '#cc2e35'], ['Water', '#2786b8'], ['Animals', '#e8771c']];
+const TOK_HEX = {W: '#2786b8', M: '#6f7884', N: '#6b3a20', L: '#88ad38', F: '#f0a92a', B: '#cc2e35'};
+function playMs(){
+  const end = gameClock.end || Date.now();
+  const paused = gameClock.paused + (gameClock.pausedAt ? end - gameClock.pausedAt : 0);
+  return Math.max(0, end - gameClock.start - paused);
+}
+function fmtTime(ms){
+  const m = Math.round(ms / 60000);
+  return m < 1 ? 'under a minute' : m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min';
+}
+/* features straight off a board, by the same rules the engine scores */
+function boardStats(P){
+  const bd = P.bd, ADJ = H.ADJ, N = H.NHEX;
+  const top = i => bd[i].length ? bd[i][bd[i].length - 1] : null;
+  let tokens = 0, empty = 0, tallTrees = 0, peaks = 0, bldg = 0, fieldGroups = 0, river = 0;
+  for(let i = 0; i < N; i++){
+    const h = bd[i].length, t = top(i);
+    tokens += h; if(!h) empty++;
+    if(t === 'L' && h === 3) tallTrees++;
+    if(t === 'M' && h === 3 && ADJ[i].some(j => top(j) === 'M')) peaks++;
+    if(t === 'B' && h >= 2 && new Set(ADJ[i].map(top).filter(Boolean)).size >= 3) bldg++;
+  }
+  const flood = (i, c, seen) => { const comp = [], q = [i]; seen.add(i);
+    while(q.length){ const u = q.shift(); comp.push(u);
+      ADJ[u].forEach(v => { if(top(v) === c && !seen.has(v)){ seen.add(v); q.push(v); } }); }
+    return comp; };
+  const fs = new Set(), ws = new Set();
+  for(let i = 0; i < N; i++){
+    if(top(i) === 'F' && !fs.has(i) && flood(i, 'F', fs).length >= 2) fieldGroups++;
+    if(top(i) === 'W' && !ws.has(i)){
+      const comp = flood(i, 'W', ws), inC = new Set(comp);
+      comp.forEach(s0 => {                                 /* river = longest shortest path, in tokens */
+        const dist = {[s0]: 0}, q = [s0];
+        while(q.length){ const u = q.shift();
+          ADJ[u].forEach(v => { if(inC.has(v) && dist[v] === undefined){ dist[v] = dist[u] + 1; q.push(v); } }); }
+        for(const k in dist) river = Math.max(river, dist[k] + 1);
+      });
+    }
+  }
+  return {tokens, empty, tallTrees, peaks, bldg, fieldGroups, river};
+}
+function summaryData(){
   const s = g.scores(), w = g.winner();
-  $('ovTitle').textContent = w===HUMAN ? 'You win!' : w===BOT ? 'Bot wins' : 'A perfect draw';
-  const rows = ['Trees','Mountains','Fields','Buildings','Water','Animals'];
-  $('ovTable').innerHTML =
-    '<tr><th></th><th>You</th><th>Bot</th></tr>' +
-    rows.map(k=>'<tr class="r-'+k+'"><td>'+k+'</td><td>'+s[0][k]+'</td><td>'+s[1][k]+'</td></tr>').join('') +
-    '<tr class="total"><td>Total</td><td>'+s[0].Total+'</td><td>'+s[1].Total+'</td></tr>' +
-    '<tr class="cubes"><td>Cubes settled</td><td>'+s[0].Cubes+'</td><td>'+s[1].Cubes+'</td></tr>';
-  $('ovTable').dataset.win = String(w);           /* v3.18: winner's column is tinted */
-  $('over').style.display = 'flex';
+  const players = [HUMAN, BOT].map(pi => {
+    const P = g.players[pi];
+    const cards = P.completed.concat(P.hand).map(c => ({def: c.def, nm: c.def.nm, n: c.def.n, placed: c.placed,
+      done: c.placed >= c.def.n, val: H.cardValue(c)}));
+    let best = null; cards.forEach(c => { if(c.val > 0 && (!best || c.val > best.val)) best = c; });
+    return {pi, key: pi === HUMAN ? 'you' : 'bot', name: pi === HUMAN ? 'You' : 'Bot', P, sc: s[pi],
+      st: boardStats(P), cards, best, done: cards.filter(c => c.done).length};
+  });
+  return {s, w, tie: s[0].Total === s[1].Total, players, turns: g.turnCount[0], ms: playMs(),
+    seed: gameSeed, bag: g._bagCount(), deck: g.deck.length, date: new Date()};
+}
+function resultText(D){
+  const [a, b] = D.players, m = Math.abs(a.sc.Total - b.sc.Total);
+  const title = D.w === HUMAN ? 'You win!' : D.w === BOT ? 'The bot wins' : 'A perfect draw';
+  const sub = D.w === -1 ? 'Same points, same cubes settled'
+    : D.tie ? 'Level on points — ' + (D.w === HUMAN ? 'you' : 'the bot') + ' settled more cubes (' +
+        Math.max(a.sc.Cubes, b.sc.Cubes) + ' to ' + Math.min(a.sc.Cubes, b.sc.Cubes) + ')'
+    : 'By ' + m + ' point' + (m === 1 ? '' : 's');
+  return {title, sub};
+}
+
+/* ---- the flat board map: one drawing routine for the sheet and the image ---- */
+function hexPath(x, cx, cy, r){
+  x.beginPath();
+  for(let k = 0; k < 6; k++){ const a = k * Math.PI / 3; x[k ? 'lineTo' : 'moveTo'](cx + r * Math.cos(a), cy + r * Math.sin(a)); }
+  x.closePath();
+}
+function shade(hex, f){                                     /* f < 0 darker, > 0 lighter */
+  const n = parseInt(hex.slice(1), 16), r = n >> 16, g2 = (n >> 8) & 255, b = n & 255;
+  const t = f < 0 ? 0 : 255, k = Math.abs(f);
+  return 'rgb(' + Math.round(r + (t - r) * k) + ',' + Math.round(g2 + (t - g2) * k) + ',' + Math.round(b + (t - b) * k) + ')';
+}
+function drawMotif(x, c, cx, cy, r){                        /* the printed symbol on each token top */
+  x.save(); x.translate(cx, cy);
+  x.strokeStyle = x.fillStyle = shade(TOK_HEX[c], c === 'N' ? 0.45 : -0.32);
+  x.lineWidth = Math.max(1, r * 0.11); x.lineCap = x.lineJoin = 'round';
+  const s = r * 0.42;
+  x.beginPath();
+  if(c === 'W'){ for(let k = -1; k <= 1; k += 2){ x.moveTo(-s, k * s * 0.32);
+    x.bezierCurveTo(-s * 0.5, k * s * 0.32 - s * 0.38, 0, k * s * 0.32 + s * 0.38, s * 0.5, k * s * 0.32); x.lineTo(s, k * s * 0.32 - s * 0.12); } x.stroke(); }
+  else if(c === 'M'){ x.moveTo(-s, s * 0.55); x.lineTo(-s * 0.1, -s * 0.6); x.lineTo(s * 0.25, -s * 0.1); x.lineTo(s * 0.45, -s * 0.35); x.lineTo(s, s * 0.55); x.stroke(); }
+  else if(c === 'N'){ x.arc(0, 0, s * 0.62, 0, 6.283); x.stroke(); x.beginPath(); x.arc(0, 0, s * 0.22, 0, 6.283); x.fill(); }
+  else if(c === 'L'){ x.ellipse(0, 0, s * 0.42, s * 0.85, 0.5, 0, 6.283); x.fill();
+    x.strokeStyle = shade(TOK_HEX.L, 0.35); x.lineWidth = Math.max(1, r * 0.06); x.beginPath(); x.moveTo(-s * 0.32, s * 0.55); x.lineTo(s * 0.28, -s * 0.5); x.stroke(); }
+  else if(c === 'F'){ for(let k = -1; k <= 1; k++){ x.moveTo(k * s * 0.5, s * 0.7); x.lineTo(k * s * 0.5 + s * 0.12, -s * 0.55); } x.stroke(); }
+  else if(c === 'B'){ x.moveTo(-s * 0.7, s * 0.65); x.lineTo(-s * 0.7, -s * 0.05); x.lineTo(0, -s * 0.7); x.lineTo(s * 0.7, -s * 0.05); x.lineTo(s * 0.7, s * 0.65); x.closePath(); x.fill(); }
+  x.restore();
+}
+/* draws a player's board centred on (ox, oy) with hex radius R */
+function drawBoardMap(x, P, ox, oy, R){
+  const C = H.COORDS, S3 = Math.sqrt(3), lift = R * 0.2;
+  const pw = 8.3 * R, ph = 5 * S3 * R + R * 0.9;
+  x.save();
+  x.fillStyle = '#4f5d2a'; x.strokeStyle = 'rgba(232,214,160,0.55)'; x.lineWidth = Math.max(1, R * 0.06);
+  x.beginPath();
+  if(x.roundRect) x.roundRect(ox - pw / 2, oy - ph / 2 - lift, pw, ph + lift, R * 0.45); else x.rect(ox - pw / 2, oy - ph / 2 - lift, pw, ph + lift);
+  x.fill(); x.stroke();
+  const order = C.map((c, i) => i).sort((a, b) => C[a][1] - C[b][1]);    /* back rows first: stacks overlap forward */
+  order.forEach(i => {
+    const cx = ox + (C[i][0] - 2) * 1.5 * R, cy = oy + C[i][1] * S3 * R;
+    const st = P.bd[i];
+    hexPath(x, cx, cy, R * 0.93);
+    x.fillStyle = st.length ? 'rgba(20,24,8,0.35)' : '#e9dfbf'; x.fill();
+    if(!st.length){ x.strokeStyle = 'rgba(80,90,40,0.35)'; x.lineWidth = Math.max(1, R * 0.05); x.stroke(); return; }
+    st.forEach((c, k) => {
+      const y = cy - k * lift;
+      hexPath(x, cx, y + lift * 0.55, R * 0.86); x.fillStyle = shade(TOK_HEX[c], -0.38); x.fill();   /* the side */
+      hexPath(x, cx, y, R * 0.86); x.fillStyle = TOK_HEX[c]; x.fill();
+      x.strokeStyle = shade(TOK_HEX[c], -0.25); x.lineWidth = Math.max(1, R * 0.045); x.stroke();
+    });
+    const top = st[st.length - 1], ty = cy - (st.length - 1) * lift;
+    drawMotif(x, top, cx, ty, R);
+    if(P.cubes[i]){
+      const q = R * 0.42;
+      x.fillStyle = '#a84f0d'; x.fillRect(cx - q / 2 + R * 0.04, ty - q / 2 - R * 0.2 + R * 0.06, q, q);
+      x.fillStyle = '#e8771c'; x.fillRect(cx - q / 2, ty - q / 2 - R * 0.2, q, q);
+      x.fillStyle = 'rgba(255,255,255,0.28)'; x.fillRect(cx - q / 2, ty - q / 2 - R * 0.2, q, q * 0.28);
+    }
+  });
+  x.restore();
+}
+function boardCanvas(P, cssW){
+  const R = cssW / 8.5, cssH = Math.round(5 * Math.sqrt(3) * R + R * 1.6);
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const c = document.createElement('canvas');
+  c.width = Math.round(cssW * dpr); c.height = Math.round(cssH * dpr);
+  c.style.width = cssW + 'px'; c.style.height = cssH + 'px';
+  const x = c.getContext('2d'); x.scale(dpr, dpr);
+  drawBoardMap(x, P, cssW / 2, cssH / 2 + R * 0.12, R);
+  c.setAttribute('role', 'img');
+  return c;
+}
+
+/* ---- the sheet ---- */
+function esc(t){ return String(t).replace(/[&<>"]/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[ch]); }
+function buildSummary(D){
+  const [A, B] = D.players, R = resultText(D);
+  const over = $('over');
+  over.dataset.win = String(D.w);
+  $('ovKick').textContent = 'Game over · ' + D.turns + ' turn' + (D.turns === 1 ? '' : 's') + ' each';
+  $('ovTitle').textContent = R.title;
+  $('ovYou').textContent = A.sc.Total; $('ovBot').textContent = B.sc.Total;
+  $('ovSub').textContent = R.sub;
+  /* points: a butterfly — yours grows left, the bot's right */
+  const mx = Math.max(1, ...ROWS.map(([k]) => Math.max(A.sc[k], B.sc[k])));
+  const side = (v, c, lead, left) => {
+    const f = v ? Math.max(0.03, v / mx) : 0;
+    const val = '<span class="bf-v' + (lead ? ' lead' : '') + '">' + v + '</span>';
+    const b = '<span class="bf-bar" style="--c:' + c + ';width:calc((100% - 2.4em) * ' + f.toFixed(3) + ')"></span>';
+    return left ? val + b : b + val;
+  };
+  $('ovBars').innerHTML =
+    '<div class="bf-row bf-head"><div class="bf-l">You</div><div class="bf-k"></div><div class="bf-r">Bot</div></div>' +
+    ROWS.map(([k, c]) => {
+      const a = A.sc[k], b = B.sc[k];
+      return '<div class="bf-row"><div class="bf-l">' + side(a, c, a > b, true) + '</div><div class="bf-k"><i style="--c:' + c + '"></i>' +
+        k + '</div><div class="bf-r">' + side(b, c, b > a, false) + '</div></div>';
+    }).join('') +
+    '<div class="bf-row tot"><div class="bf-l"><span class="bf-v' + (D.w === HUMAN ? ' lead' : '') + '">' + A.sc.Total + '</span></div>' +
+    '<div class="bf-k">Total</div><div class="bf-r"><span class="bf-v' + (D.w === BOT ? ' lead' : '') + '">' + B.sc.Total + '</span></div></div>';
+  /* the two boards */
+  const bw = Math.min(300, Math.floor(($('ovBoards').clientWidth || 600) / 2) - 26);
+  $('ovBoards').innerHTML = '';
+  D.players.forEach(p => {
+    const box = document.createElement('div'); box.className = 'sb ' + p.key;
+    const facts = [p.st.river ? 'river ' + p.st.river : 'no river', p.st.fieldGroups + ' field group' + (p.st.fieldGroups === 1 ? '' : 's'),
+      p.sc.Cubes + ' cube' + (p.sc.Cubes === 1 ? '' : 's')];
+    box.innerHTML = '<h4><span><i class="hex" aria-hidden="true"></i>' + (p.pi === HUMAN ? 'Your board' : 'Bot’s board') + '</span><b>' + p.sc.Total + '</b></h4>';
+    const cv = boardCanvas(p.P, Math.max(120, bw));
+    cv.setAttribute('aria-label', (p.pi === HUMAN ? 'Your' : 'The bot’s') + ' final board');
+    box.appendChild(cv);
+    const f = document.createElement('div'); f.className = 'facts'; f.textContent = facts.join(' · ');
+    box.appendChild(f);
+    $('ovBoards').appendChild(box);
+  });
+  /* every card taken, with how far it got */
+  $('ovCards').innerHTML = D.players.map(p => {
+    const list = p.cards.length ? p.cards.map(c => {
+      const cubes = Array.from({length: c.n}, (_, k) => '<i' + (k < c.placed ? '' : ' class="off"') + '></i>').join('');
+      const badge = c.done ? '<span class="badge">✓ Complete</span>'
+        : '<span class="badge">' + c.placed + ' of ' + c.n + '</span>';
+      return '<button class="sc' + (c.done ? ' done' : c.placed ? ' part' : ' none') + '" data-nm="' + esc(c.nm) + '">' +
+        '<span class="ph"><img src="' + cardFace(c.def) + '" alt="" loading="lazy">' + badge + '</span>' +
+        '<span class="nm">' + esc(c.nm) + '</span><span class="cubes" aria-hidden="true">' + cubes + '</span>' +
+        '<span class="pts">' + c.val + ' pt' + (c.val === 1 ? '' : 's') + '</span></button>';
+    }).join('') : '<div class="hint">No animal cards.</div>';
+    return '<div class="sc-row ' + p.key + '"><h4>' + (p.pi === HUMAN ? 'You' : 'Bot') + ' · ' + p.cards.length + ' taken, ' +
+      p.done + ' complete</h4><div class="sc-list">' + list + '</div></div>';
+  }).join('');
+  $('ovCards').querySelectorAll('.sc').forEach(b => b.onclick = () => {
+    const def = H.CARD_DEFS.find(d => d.nm === b.dataset.nm); if(def) showZoom(def, null); });
+  /* the numbers */
+  const ppt = p => D.turns ? (p.sc.Total / D.turns).toFixed(1) : '–';
+  const rows = [
+    ['Cubes settled', p => p.sc.Cubes, 1],
+    ['Cards completed', p => p.done + ' of ' + p.cards.length, 0, p => p.done],
+    ['Longest river', p => p.st.river ? p.st.river + ' tokens' : '–', 1, p => p.st.river],
+    ['Scoring field groups', p => p.st.fieldGroups, 1],
+    ['Scoring buildings', p => p.st.bldg, 1],
+    ['3-high trees', p => p.st.tallTrees, 1],
+    ['3-high peaks', p => p.st.peaks, 1],
+    ['Tokens placed', p => p.st.tokens, 1],
+    ['Empty spaces', p => p.st.empty, 0, null],
+    ['Best card', p => p.best ? esc(p.best.nm) + ' · ' + p.best.val : '–', 0, p => p.best ? p.best.val : 0],
+    ['Points per turn', ppt, 0, p => p.sc.Total]
+  ];
+  $('ovStats').innerHTML = '<tr><th></th><th>You</th><th>Bot</th></tr>' + rows.map(([lab, f, num, keyf]) => {
+    const k = keyf === undefined ? (num ? f : null) : keyf;
+    const va = k ? +k(A) : 0, vb = k ? +k(B) : 0;
+    return '<tr><td>' + lab + '</td><td' + (k && va > vb ? ' class="lead"' : '') + '>' + f(A) + '</td><td' +
+      (k && vb > va ? ' class="lead"' : '') + '>' + f(B) + '</td></tr>';
+  }).join('');
+  const facts = [D.turns + ' turns each', 'Played ' + fmtTime(D.ms)];
+  if(D.seed !== undefined) facts.push('Seed ' + D.seed);
+  facts.push(D.bag + ' token' + (D.bag === 1 ? '' : 's') + ' left in the bag', D.deck + ' card' + (D.deck === 1 ? '' : 's') + ' left in the deck',
+    D.date.toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'}));
+  $('ovFacts').innerHTML = facts.map(t => '<span>' + esc(t) + '</span>').join('');
+}
+function openSummary(){
+  const D = summaryData();
+  $('over').classList.add('open');
+  buildSummary(D);
+  $('ovScroll').scrollTop = 0;
+  if(!shareJob) shareJob = buildShareImage(D).catch(err => { shareJob = null; throw err; });
+  setTimeout(() => { try { $('ovTitle').focus({preventScroll: true}); } catch(_e){} }, 0);
+}
+function closeSummary(){ $('over').classList.remove('open'); poke(); }
+
+/* ---- the share image: a tall card, drawn on a 2D canvas ---- */
+function loadImg(src){
+  return new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = src; });
+}
+function rrect(x, X, Y, W, Hh, r){ x.beginPath(); if(x.roundRect) x.roundRect(X, Y, W, Hh, r); else x.rect(X, Y, W, Hh); }
+async function buildShareImage(D){
+  try { await Promise.all([document.fonts.load('700 40px Fraunces'), document.fonts.load('800 20px "Nunito Sans"'),
+    document.fonts.load('600 20px "Nunito Sans"')]); } catch(_e){}
+  const [A, B] = D.players, R = resultText(D);
+  const W = 1080, M = 56, IW = W - 2 * M;
+  const serif = 'Fraunces, Georgia, serif', sans = '"Nunito Sans", system-ui, sans-serif';
+  const imgs = {};
+  await Promise.all(A.cards.concat(B.cards).map(async c => { if(!imgs[c.nm]) imgs[c.nm] = await loadImg(cardFace(c.def)); }));
+  /* card rows: as many per row as fit, shrinking for big hands */
+  const maxCards = Math.max(1, A.cards.length, B.cards.length);
+  const cw = Math.min(132, Math.floor((IW - 40 - (maxCards - 1) * 14) / maxCards)), ch = Math.round(cw / 0.584);
+  const heroH = 430;
+  /* drawn on a tall sheet, then trimmed to what was used */
+  const Hh = 3800;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = Hh;
+  const x = cv.getContext('2d');
+  x.textBaseline = 'alphabetic';
+  /* hero (the paper behind everything is laid at the end, once the height is known) */
+  x.save(); rrect(x, 16, 16, W - 32, heroH + 40, 40); x.clip();
+  const hg = x.createRadialGradient(W / 2, 0, 40, W / 2, 0, 760);
+  hg.addColorStop(0, '#5b7a33'); hg.addColorStop(0.62, '#33461c'); hg.addColorStop(1, '#263515');
+  x.fillStyle = hg; x.fillRect(16, 16, W - 32, heroH);
+  ['#2786b8', '#6f7884', '#6b3a20', '#88ad38', '#f0a92a', '#cc2e35'].forEach((c, k) => {
+    x.fillStyle = c; x.fillRect(16 + k * (W - 32) / 6, 16 + heroH - 10, (W - 32) / 6 + 1, 10); });
+  x.restore();
+  x.textAlign = 'center';
+  x.fillStyle = 'rgba(247,238,214,0.72)'; x.font = '800 24px ' + sans;
+  if('letterSpacing' in x) x.letterSpacing = '5px';
+  x.fillText('HARMONIES 3D · GAME OVER · ' + D.turns + ' TURNS EACH', W / 2, 92);
+  if('letterSpacing' in x) x.letterSpacing = '0px';
+  x.fillStyle = '#f7eed6'; x.font = '700 92px ' + serif; x.fillText(R.title, W / 2, 196);
+  /* score: You 78 – 64 Bot, with seat hexes */
+  const seatHex = (cx, cy, r, c) => { x.save(); x.fillStyle = c; x.beginPath();
+    for(let k = 0; k < 6; k++){ const a = -Math.PI / 2 + k * Math.PI / 3; x[k ? 'lineTo' : 'moveTo'](cx + r * Math.cos(a), cy + r * Math.sin(a)); }
+    x.closePath(); x.fill(); x.restore(); };
+  x.font = '700 120px ' + serif;
+  const sa = String(A.sc.Total), sb = String(B.sc.Total);
+  const wa = x.measureText(sa).width, wb = x.measureText(sb).width;
+  x.textAlign = 'right'; x.fillStyle = D.w === BOT ? 'rgba(255,248,230,0.62)' : '#fff8e6'; x.fillText(sa, W / 2 - 42, 336);
+  x.textAlign = 'left'; x.fillStyle = D.w === HUMAN ? 'rgba(255,248,230,0.62)' : '#fff8e6'; x.fillText(sb, W / 2 + 42, 336);
+  x.textAlign = 'center'; x.fillStyle = 'rgba(247,238,214,0.6)'; x.font = '600 80px ' + serif; x.fillText('–', W / 2, 326);
+  x.font = '800 30px ' + sans; x.fillStyle = 'rgba(247,238,214,0.88)';
+  x.textAlign = 'right'; x.fillText('You', W / 2 - 66 - wa, 318); seatHex(W / 2 - 66 - wa - x.measureText('You').width - 26, 307, 13, SEAT_C.you);
+  x.textAlign = 'left'; x.fillText('Bot', W / 2 + 66 + wb, 318); seatHex(W / 2 + 66 + wb + x.measureText('Bot').width + 26, 307, 13, SEAT_C.bot);
+  x.textAlign = 'center'; x.font = '700 30px ' + sans; x.fillStyle = 'rgba(247,238,214,0.84)'; x.fillText(R.sub, W / 2, 392);
+  let y = 16 + heroH + 30;
+  const h3 = (t) => { x.textAlign = 'left'; x.fillStyle = '#23301f'; x.font = '700 38px ' + serif; x.fillText(t, M, y + 30);
+    x.strokeStyle = '#e2d6b8'; x.lineWidth = 2; x.beginPath(); x.moveTo(M, y - 6); x.lineTo(W - M, y - 6); x.stroke(); y += 58; };
+  /* butterfly */
+  h3('Points');
+  const mx = Math.max(1, ...ROWS.map(([k]) => Math.max(A.sc[k], B.sc[k])));
+  const mid = W / 2, half = IW / 2 - 130;
+  x.font = '800 22px ' + sans; x.fillStyle = '#5a6450';
+  x.textAlign = 'right'; x.fillText('YOU', mid - 110, y + 4); x.textAlign = 'left'; x.fillText('BOT', mid + 110, y + 4);
+  y += 22;
+  ROWS.forEach(([k, c]) => {
+    const a = A.sc[k], b = B.sc[k], cy = y + 24;
+    const la = half * a / mx, lb = half * b / mx;
+    x.fillStyle = c;
+    if(a){ rrect(x, mid - 100 - la, cy - 11, Math.max(6, la), 22, 11); x.fill(); }
+    if(b){ rrect(x, mid + 100, cy - 11, Math.max(6, lb), 22, 11); x.fill(); }
+    x.font = '700 30px ' + serif;
+    x.fillStyle = a > b ? '#23301f' : '#848a76'; x.textAlign = 'right'; x.fillText(String(a), mid - 112 - la, cy + 11);
+    x.fillStyle = b > a ? '#23301f' : '#848a76'; x.textAlign = 'left'; x.fillText(String(b), mid + 112 + lb, cy + 11);
+    x.textAlign = 'center'; x.font = '800 22px ' + sans; x.fillStyle = '#5a6450'; x.fillText(k, mid, cy + 8);
+    y += 52;
+  });
+  x.font = '700 34px ' + serif; x.fillStyle = '#23301f';
+  x.textAlign = 'right'; x.fillText(String(A.sc.Total), mid - 112, y + 26);
+  x.textAlign = 'left'; x.fillText(String(B.sc.Total), mid + 112, y + 26);
+  x.textAlign = 'center'; x.font = '800 22px ' + sans; x.fillStyle = '#23301f'; x.fillText('TOTAL', mid, y + 20);
+  y += 64;
+  /* boards */
+  h3('Final boards');
+  const Rb = 52, colW = IW / 2, bh = 5 * Math.sqrt(3) * Rb + Rb * 1.2;
+  D.players.forEach((p, k) => {
+    const cx = M + colW * k + colW / 2;
+    x.textAlign = 'center'; x.font = '800 26px ' + sans; x.fillStyle = '#5a6450';
+    x.fillText((p.pi === HUMAN ? 'YOU' : 'BOT') + ' · ' + p.sc.Total, cx, y + 10);
+    drawBoardMap(x, p.P, cx, y + 40 + bh / 2, Rb);
+    x.font = '700 22px ' + sans; x.fillStyle = '#5a6450';
+    x.fillText((p.st.river ? 'river ' + p.st.river : 'no river') + ' · ' + p.st.fieldGroups + ' field group' + (p.st.fieldGroups === 1 ? '' : 's') +
+      ' · ' + p.sc.Cubes + ' cube' + (p.sc.Cubes === 1 ? '' : 's'), cx, y + 76 + bh);
+  });
+  y += bh + 120;
+  /* cards */
+  h3('Animal cards');
+  D.players.forEach(p => {
+    x.textAlign = 'left'; x.font = '800 24px ' + sans; x.fillStyle = '#5a6450';
+    x.fillText((p.pi === HUMAN ? 'YOU' : 'BOT') + ' · ' + p.cards.length + ' TAKEN · ' + p.done + ' COMPLETE', M, y + 6);
+    y += 22;
+    p.cards.forEach((c, k) => {
+      const cx = M + k * (cw + 14), cy = y;
+      x.save(); rrect(x, cx, cy, cw, ch, cw * 0.06); x.clip();
+      if(imgs[c.nm]) x.drawImage(imgs[c.nm], cx, cy, cw, ch); else { x.fillStyle = '#e3d8bb'; x.fillRect(cx, cy, cw, ch); }
+      x.restore();
+      /* badge */
+      const bt = c.done ? '✓ Complete' : c.placed + ' of ' + c.n;
+      x.font = '800 ' + Math.round(cw * 0.15) + 'px ' + sans;
+      const bw2 = Math.min(cw - 8, x.measureText(bt).width + 18), bh = Math.round(cw * 0.22);
+      rrect(x, cx + (cw - bw2) / 2, cy + ch - bh - 6, bw2, bh, bh / 2);
+      x.fillStyle = c.done ? '#4f6a2c' : 'rgba(255,251,241,0.95)'; x.fill();
+      x.fillStyle = c.done ? '#f8f1dd' : '#23301f'; x.textAlign = 'center'; x.fillText(bt, cx + cw / 2, cy + ch - 6 - bh * 0.3);
+      x.font = '700 ' + Math.round(cw * 0.17) + 'px ' + serif; x.fillStyle = '#23301f';
+      x.fillText(c.nm.replace(/([a-z])([A-Z])/g, '$1 $2'), cx + cw / 2, cy + ch + 34, cw + 10);
+      /* cube track */
+      const q = Math.min(14, (cw - 10) / c.n - 4), tw = c.n * (q + 4) - 4;
+      for(let j = 0; j < c.n; j++){
+        const qx = cx + cw / 2 - tw / 2 + j * (q + 4), qy = cy + ch + 46;
+        if(j < c.placed){ x.fillStyle = '#e8771c'; x.fillRect(qx, qy, q, q); }
+        else { x.strokeStyle = 'rgba(232,119,28,0.5)'; x.lineWidth = 2; x.strokeRect(qx + 1, qy + 1, q - 2, q - 2); }
+      }
+      x.font = '700 ' + Math.round(cw * 0.15) + 'px ' + sans; x.fillStyle = '#5a6450';
+      x.fillText(c.val + ' pt' + (c.val === 1 ? '' : 's'), cx + cw / 2, cy + ch + 86);
+    });
+    if(!p.cards.length){ x.font = '600 24px ' + sans; x.fillStyle = '#848a76'; x.textAlign = 'left'; x.fillText('No animal cards', M, y + 40); }
+    y += ch + 128;
+  });
+  y += 10;
+  /* numbers */
+  h3('The numbers');
+  const srows = [['Cubes settled', p => p.sc.Cubes, p => p.sc.Cubes], ['Cards completed', p => p.done + ' of ' + p.cards.length, p => p.done],
+    ['Longest river', p => p.st.river ? p.st.river + ' tokens' : '–', p => p.st.river], ['Scoring field groups', p => p.st.fieldGroups, p => p.st.fieldGroups],
+    ['Scoring buildings', p => p.st.bldg, p => p.st.bldg], ['Best card', p => p.best ? p.best.nm.replace(/([a-z])([A-Z])/g, '$1 $2') + ' · ' + p.best.val : '–', p => p.best ? p.best.val : 0],
+    ['Points per turn', p => D.turns ? (p.sc.Total / D.turns).toFixed(1) : '–', p => p.sc.Total]];
+  x.font = '800 22px ' + sans; x.fillStyle = '#5a6450'; x.textAlign = 'right';
+  x.fillText('YOU', W - M - 300, y + 2); x.fillText('BOT', W - M, y + 2);
+  y += 16;
+  srows.forEach(([lab, f, kf]) => {
+    x.strokeStyle = '#e2d6b8'; x.lineWidth = 2; x.beginPath(); x.moveTo(M, y); x.lineTo(W - M, y); x.stroke();
+    x.textAlign = 'left'; x.font = '700 26px ' + sans; x.fillStyle = '#5a6450'; x.fillText(lab, M, y + 33);
+    const va = kf(A), vb = kf(B);
+    x.textAlign = 'right'; x.font = (va > vb ? '900 ' : '700 ') + '26px ' + sans; x.fillStyle = va > vb ? '#3e5a1c' : '#23301f';
+    x.fillText(String(f(A)), W - M - 300, y + 33);
+    x.font = (vb > va ? '900 ' : '700 ') + '26px ' + sans; x.fillStyle = vb > va ? '#3e5a1c' : '#23301f';
+    x.fillText(String(f(B)), W - M, y + 33);
+    y += 46;
+  });
+  /* footer */
+  y += 34;
+  x.textAlign = 'center'; x.font = '700 22px ' + sans; x.fillStyle = '#848a76';
+  const foot = [D.date.toLocaleDateString(undefined, {year: 'numeric', month: 'short', day: 'numeric'}), 'played ' + fmtTime(D.ms)];
+  if(D.seed !== undefined) foot.push('seed ' + D.seed);
+  x.fillText(foot.join(' · '), W / 2, y);
+  x.font = '600 20px ' + sans; x.fillText('Harmonies 3D · v3.19 · base game, side A', W / 2, y + 32);
+  /* trim: the frame and paper go underneath what was drawn */
+  const outH = Math.min(Hh, Math.ceil(y + 76));
+  const out = document.createElement('canvas'); out.width = W; out.height = outH;
+  const o = out.getContext('2d');
+  o.fillStyle = '#140c06'; o.fillRect(0, 0, W, outH);
+  rrect(o, 16, 16, W - 32, outH - 32, 40); o.fillStyle = '#f5eedb'; o.fill();
+  o.save(); rrect(o, 16, 16, W - 32, outH - 32, 40); o.clip();
+  o.strokeStyle = 'rgba(120,96,50,0.05)'; o.lineWidth = 2;
+  for(let yy = 30; yy < outH; yy += 9){ o.beginPath(); o.moveTo(16, yy); o.lineTo(W - 16, yy + 40); o.stroke(); }
+  o.drawImage(cv, 0, 0, W, outH, 0, 0, W, outH);
+  o.restore();
+  cv.width = cv.height = 1;                                  /* free the tall sheet now */
+  const blob = await new Promise(res => out.toBlob(res, 'image/png'));
+  if(!blob) throw new Error('image export failed');
+  const dd = D.date, ymd = dd.getFullYear() + '-' + String(dd.getMonth() + 1).padStart(2, '0') + '-' + String(dd.getDate()).padStart(2, '0');
+  const name = 'harmonies-3d-' + ymd + '-' + A.sc.Total + '-' + B.sc.Total + '.png';
+  const file = (typeof File === 'function') ? new File([blob], name, {type: 'image/png'}) : null;
+  return {blob, file, name, url: URL.createObjectURL(blob), text: 'Harmonies 3D — ' + R.title + ' ' + A.sc.Total + '–' + B.sc.Total};
+}
+async function shareSummary(){
+  const btn = $('ovShare');
+  if(!shareJob) shareJob = buildShareImage(summaryData());
+  let S = null;
+  btn.disabled = true; const lab = btn.querySelector('.lbl'); const old = lab.textContent; lab.textContent = 'Preparing…';
+  try { S = await shareJob; } catch(e){ toast('Could not make the image: ' + e.message); }
+  btn.disabled = false; lab.textContent = old;
+  if(!S) return;
+  if(S.file && navigator.canShare && navigator.share){
+    let ok = false;
+    try { ok = navigator.canShare({files: [S.file]}); } catch(_e){}
+    if(ok){
+      try { await navigator.share({files: [S.file], title: 'Harmonies 3D', text: S.text}); return; }
+      catch(e){ if(e && e.name === 'AbortError') return; }      /* cancelled by the player */
+    }
+  }
+  showSharePreview(S);                                           /* no share sheet: show it to save */
+}
+function showSharePreview(S){
+  $('svImg').src = S.url;
+  const a = $('svSave'); a.href = S.url; a.download = S.name;
+  $('shareView').classList.add('open');
+}
+$('ovShare').addEventListener('click', shareSummary);
+$('ovBack').addEventListener('click', closeSummary);
+$('ovNew').addEventListener('click', () => { closeSummary(); newGame(undefined); });
+$('over').addEventListener('click', e => { if(e.target.id === 'over') closeSummary(); });
+$('svClose').addEventListener('click', () => $('shareView').classList.remove('open'));
+$('shareView').addEventListener('click', e => { if(e.target.id === 'shareView') $('shareView').classList.remove('open'); });
+$('bSum').addEventListener('click', openSummary);
+$('bNew2').addEventListener('click', () => newGame(undefined));
+
+function showOver(){
+  gameClock.end = Date.now();
+  if(shareJob) shareJob.then(S => { if(S && S.url) URL.revokeObjectURL(S.url); }, () => {});
+  shareJob = null;
+  setDock(false);
+  updateUI();
+  openSummary();
 }
 
 function newGame(seed){
@@ -5302,7 +6202,10 @@ function newGame(seed){
   undoStack = []; selTray = 0; viewPlayer = HUMAN;
   pendingPileRefill = pendingCardTake = pendingBotTake = pendingMiniDrop = pendingSettle = marketFly = null;
   miniSwap = dropAnim = null;
-  $('over').style.display = 'none';
+  gameSeed = seed; gameClock = {start: Date.now(), end: 0, paused: 0, pausedAt: 0};   /* v3.19 */
+  if(shareJob) shareJob.then(S => { if(S && S.url) URL.revokeObjectURL(S.url); }, () => {});
+  shareJob = null;
+  $('over').classList.remove('open'); $('shareView').classList.remove('open');
   rebuild(); updateUI();
   toast(seed!==undefined ? 'New game · seed '+seed : 'New game');
 }
@@ -5321,6 +6224,7 @@ function syncPauseUI(){
 function openPause(){
   if(paused) return;
   paused = true; syncPauseUI();
+  if(gameClock.start && !gameClock.end) gameClock.pausedAt = Date.now();
   pauseEl.classList.add('open');
   $('bagchip').classList.remove('open');
   setTimeout(() => {
@@ -5332,6 +6236,7 @@ function openPause(){
 function closePause(){
   if(!paused) return;
   paused = false;
+  if(gameClock.pausedAt){ gameClock.paused += Date.now() - gameClock.pausedAt; gameClock.pausedAt = 0; }
   pauseEl.classList.remove('open');
   try { $('pauseBtn').focus({preventScroll: true}); } catch(_e){}
   poke();
@@ -5354,6 +6259,8 @@ $('nsfwToggle').addEventListener('change', e => setVices(e.target.checked));
 document.addEventListener('keydown', e => {
   if(e.key !== 'Escape') return;
   if($('zoom').style.display === 'flex'){ closeZoom(); return; }
+  if($('shareView').classList.contains('open')){ $('shareView').classList.remove('open'); return; }
+  if($('over').classList.contains('open')){ closeSummary(); return; }
   if(paused) closePause(); else openPause();
 });
 $('bagchip').addEventListener('keydown', e => {
@@ -5368,7 +6275,7 @@ $('bagchip').addEventListener('keydown', e => {
 })();
 
 /* boot */
-resize(); booted = true; fitView(true); newGame(undefined);
+resize(); booted = true; syncHudVars(); fitView(true); newGame(undefined);
 requestAnimationFrame(loop);
 </script>
 </body>
